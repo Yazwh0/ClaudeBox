@@ -170,7 +170,7 @@ internal static class SessionCommands
         return 0;
     }
 
-    /// <summary>`cb` on its own: a new session in this folder, named after it ("claudebox", "claudebox 2", ...).</summary>
+    /// <summary>`cb` on its own: a new session in this folder, named from config ("Claude", "Claude 2", ...).</summary>
     public static int Quick(bool here)
     {
         var config = Config.Load();

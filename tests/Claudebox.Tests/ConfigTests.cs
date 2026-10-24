@@ -14,6 +14,9 @@ public sealed class ConfigTests : IDisposable
 
         Assert.True(File.Exists(ConfigPath));
         Assert.Equal("ask", config.NameClash.Action);
+        Assert.Equal("Claude", config.DefaultName);
+        Assert.Equal("general", config.DefaultWork);
+        Assert.NotNull(config.FindWork("General"));
         Assert.NotNull(config.FindWork("HOTFIX"));
     }
 

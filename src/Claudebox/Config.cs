@@ -18,15 +18,16 @@ internal sealed class Config
     };
 
     public string? ClaudePath { get; set; }
-    public string? DefaultWork { get; set; } = "feature";
+    public string? DefaultWork { get; set; } = "general";
 
     /// <summary>Name for `cb` on its own; {folder} is the current folder's name. Clashes get a number.</summary>
-    public string DefaultName { get; set; } = "{folder}";
+    public string DefaultName { get; set; } = "Claude";
     public NameClashConfig NameClash { get; set; } = new();
 
     [JsonObjectCreationHandling(JsonObjectCreationHandling.Replace)]
     public Dictionary<string, WorkType> Work { get; set; } = new(StringComparer.OrdinalIgnoreCase)
     {
+        ["general"] = new(),
         ["hotfix"] = new() { Colour = "#C62828" },
         ["feature"] = new() { Colour = "#2E7D32" },
         ["research"] = new() { Colour = "#1565C0" },

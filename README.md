@@ -13,7 +13,7 @@ Needs the .NET 10 runtime, [Claude Code](https://code.claude.com) and Windows Te
 ## Use
 
 ```
-cb                                   start a session here, named after the folder
+cb                                   start a session here, called "Claude" (then "Claude 2", ...)
 cb new "API refactor"                start a named session in a new tab
 cb new "Login bug" --work hotfix     colour the tab by work type
 cb ls                                list sessions and their status
@@ -36,10 +36,11 @@ Sessions can be given by name, name prefix or their number in `cb ls`. Add `--he
 ```json
 {
   "claudePath": null,
-  "defaultWork": "feature",
-  "defaultName": "{folder}",
+  "defaultWork": "general",
+  "defaultName": "Claude",
   "nameClash": { "action": "ask", "nonInteractive": "fail", "renamePattern": "{name} {n}" },
   "work": {
+    "general":  {},
     "hotfix":   { "colour": "#C62828" },
     "feature":  { "colour": "#2E7D32" },
     "research": { "colour": "#1565C0" }
@@ -47,6 +48,8 @@ Sessions can be given by name, name prefix or their number in `cb ls`. Add `--he
 }
 ```
 
+- `defaultName`: name for `cb` on its own; `{folder}` is replaced with the current folder's name.
+- `defaultWork`: work type when `--work` isn't given.
 - `work`: tab colour, and optionally a Windows Terminal colour `scheme`, per type of work.
 - `nameClash.action`: what `cb new` does when the name is taken: `ask`, `resume`, `replace`, `rename` or `fail`. Override with `--on-clash`.
 

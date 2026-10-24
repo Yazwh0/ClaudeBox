@@ -103,6 +103,20 @@ public class LaunchArgumentTests
         Assert.Equal("\"dotnet\" \"C:/copy dir/cb.dll\" hook Stop", command);
     }
 
+    [Theory]
+    [InlineData(@"C:\a\bin\copy\", @"C:\a\bin\copy")]
+    [InlineData(@"C:\a\bin\copy", @"c:\A\BIN\COPY\")]
+    public void AppCopy_SamePath_IgnoresTrailingSeparatorAndCase(string a, string b)
+    {
+        Assert.True(AppCopy.SamePath(a, b));
+    }
+
+    [Fact]
+    public void AppCopy_SamePath_DifferentFolders()
+    {
+        Assert.False(AppCopy.SamePath(@"C:\a\bin\copy1", @"C:\a\bin\copy2"));
+    }
+
     [Fact]
     public void AppCopy_BuildKey_ChangesWithDllTimeAndIsPathSafe()
     {

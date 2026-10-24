@@ -34,8 +34,16 @@ internal static class AppCopy
 
     private const string LockFile = "in-use.lock";
 
+    /// <summary>Written last when making a copy, so a partial or damaged copy is never used.</summary>
+    private const string CompleteFile = "copy-complete";
+
     private static bool IsCopy(string directory) =>
-        Path.GetFullPath(directory).StartsWith(Path.GetFullPath(AppPaths.Bin), StringComparison.OrdinalIgnoreCase);
+        Normalise(directory).StartsWith(Normalise(AppPaths.Bin) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>AppContext.BaseDirectory ends with a separator and enumerated folders don't.</summary>
+    internal static string Normalise(string path) => Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
+
+    internal static bool SamePath(string a, string b) => string.Equals(Normalise(a), Normalise(b), StringComparison.OrdinalIgnoreCase);
 
     /// <summary>The key includes the dll's write time, so rebuilding from source without a version change still gets a fresh copy.</summary>
     internal static string BuildKey(string version, DateTime dllWrittenUtc)
@@ -51,17 +59,20 @@ internal static class AppCopy
             .OfType<System.Reflection.AssemblyInformationalVersionAttribute>()
             .FirstOrDefault()?.InformationalVersion ?? "0.0.0";
         var target = Path.Combine(AppPaths.Bin, BuildKey(version, File.GetLastWriteTimeUtc(Path.Combine(source, AppDll))));
-        if (File.Exists(Path.Combine(target, AppDll)))
+        if (File.Exists(Path.Combine(target, CompleteFile)))
             return target;
+        if (Directory.Exists(target))
+            TryDelete(target);
 
         // Copy beside the target then rename, so a half-written copy is never used.
         var temp = $"{target}.{Environment.ProcessId}.tmp";
         CopyDirectory(source, temp);
+        File.WriteAllText(Path.Combine(temp, CompleteFile), version);
         try
         {
             Directory.Move(temp, target);
         }
-        catch (IOException) when (File.Exists(Path.Combine(target, AppDll)))
+        catch (IOException) when (File.Exists(Path.Combine(target, CompleteFile)))
         {
             // Another cb made the same copy first.
             TryDelete(temp);
@@ -70,9 +81,9 @@ internal static class AppCopy
     }
 
     /// <summary>
-    /// Windows lets loaded .NET dlls be deleted, so being run from isn't enough to protect a copy.
-    /// A copy is in use while any session holds its lock file (see Pin); deleting the lock file
-    /// fails in that case, and only then is the copy kept.
+    /// Removes copies nothing is using. A copy is in use if a session holds its lock file (see
+    /// Pin) or a process is running from it (its cb.dll can't be deleted then). Those two files
+    /// go first, and the rest only if both could be deleted, so a copy in use is never damaged.
     /// </summary>
     private static void RemoveUnused(string keep)
     {
@@ -81,7 +92,7 @@ internal static class AppCopy
 
         foreach (var dir in Directory.EnumerateDirectories(AppPaths.Bin))
         {
-            if (string.Equals(Path.GetFullPath(dir), Path.GetFullPath(keep), StringComparison.OrdinalIgnoreCase))
+            if (SamePath(dir, keep))
                 continue;
             // Another cb may be part way through making this copy.
             if (dir.EndsWith(".tmp") && Directory.GetCreationTimeUtc(dir) > DateTime.UtcNow.AddMinutes(-10))
@@ -90,6 +101,7 @@ internal static class AppCopy
             try
             {
                 File.Delete(Path.Combine(dir, LockFile));
+                File.Delete(Path.Combine(dir, AppDll));
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException)
             {
