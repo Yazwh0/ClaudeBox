@@ -85,6 +85,31 @@ var rmCommand = new Command("rm", "Remove a session from cb") { rmSession, rmExi
 rmCommand.SetAction(r => SessionCommands.Remove(
     r.GetValue(rmSession), r.GetValue(rmExited), r.GetValue(rmWork), r.GetValue(rmYes), r.GetValue(rmForget)));
 
+// config
+var configKey = new Argument<string>("setting") { Description = "Setting name, e.g. defaultName or nameClash.action" };
+var configValue = new Argument<string>("value");
+var configSetCommand = new Command("set", "Change a setting") { configKey, configValue };
+configSetCommand.SetAction(r => ConfigCommands.Set(r.GetValue(configKey)!, r.GetValue(configValue)!));
+var configUnsetCommand = new Command("unset", "Put a setting back to its default") { configKey };
+configUnsetCommand.SetAction(r => ConfigCommands.Unset(r.GetValue(configKey)!));
+var configEditCommand = new Command("edit", "Open config.json in your editor");
+configEditCommand.SetAction(_ => ConfigCommands.Edit());
+var configCommand = new Command("config", "Show or change your settings") { configSetCommand, configUnsetCommand, configEditCommand };
+configCommand.SetAction(_ => ConfigCommands.Show());
+
+// work
+var workName = new Argument<string>("type") { Description = "Work type name, e.g. hotfix" };
+var workColour = new Option<string?>("--colour", "--color") { Description = "Tab colour (#RRGGBB or a name), or none" };
+var workScheme = new Option<string?>("--scheme") { Description = "Windows Terminal colour scheme for the whole pane, or none" };
+var workAddCommand = new Command("add", "Add a work type, or change one") { workName, workColour, workScheme };
+workAddCommand.SetAction(r => ConfigCommands.AddWork(r.GetValue(workName)!, r.GetValue(workColour), r.GetValue(workScheme)));
+var workRmCommand = new Command("rm", "Remove a work type") { workName };
+workRmCommand.SetAction(r => ConfigCommands.RemoveWork(r.GetValue(workName)!));
+var workLsCommand = new Command("ls", "List work types");
+workLsCommand.SetAction(_ => ConfigCommands.ListWork());
+var workCommand = new Command("work", "List, add or remove work types") { workLsCommand, workAddCommand, workRmCommand };
+workCommand.SetAction(_ => ConfigCommands.ListWork());
+
 // run (internal: what a new tab executes)
 var runId = new Argument<string>("id");
 var runCommand = new Command("run", "Internal: run a session in this console") { runId };
@@ -100,7 +125,8 @@ hookCommand.SetAction(r => HookCommand.Handle(r.GetValue(hookEvent)!));
 var root = new RootCommand("claudebox: named, restorable Claude Code sessions. On its own, cb starts a session in this folder.")
 {
     hereOption,
-    newCommand, resumeCommand, lsCommand, restoreCommand, setCommand, renameCommand, rmCommand, runCommand, hookCommand,
+    newCommand, resumeCommand, lsCommand, restoreCommand, setCommand, renameCommand, rmCommand,
+    configCommand, workCommand, runCommand, hookCommand,
 };
 root.SetAction(r => SessionCommands.Quick(r.GetValue(hereOption)));
 

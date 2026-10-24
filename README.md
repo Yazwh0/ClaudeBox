@@ -103,6 +103,27 @@ Forgets sessions. Claude's transcripts are kept unless you ask otherwise, and ru
 | `-y`, `--yes` | Don't ask before removing several |
 | `--forget-transcript` | Also delete Claude's transcript of the conversation |
 
+### `cb config`
+
+Shows your settings and where the file is. Values are checked before they're saved, so a typo can't leave a config that won't load.
+
+| Command | Description |
+| --- | --- |
+| `cb config set <setting> <value>` | Change a setting, e.g. `cb config set nameClash.action rename` |
+| `cb config unset <setting>` | Put a setting back to its default |
+| `cb config edit` | Open `config.json` in `$VISUAL`/`$EDITOR`, or whatever opens `.json` files |
+
+### `cb work`
+
+Lists the work types, their colours, and which is the default.
+
+| Command | Description |
+| --- | --- |
+| `cb work add <type> [--colour <c>] [--scheme <s>]` | Add a work type, or change one; `none` clears a colour or scheme |
+| `cb work rm <type>` | Remove a work type (not the default one) |
+
+Sessions keep the colour they were given, so changing a work type doesn't recolour existing sessions; use `cb set <session> --work <type>` for that.
+
 ## Statuses
 
 | Status | |
@@ -117,7 +138,7 @@ Forgets sessions. Claude's transcripts are kept unless you ask otherwise, and ru
 
 ## Config
 
-`%APPDATA%\claudebox\config.json` is created on first run. Command-line options override it.
+`%APPDATA%\claudebox\config.json` is created on first run. Change it with `cb config` and `cb work`, or edit it by hand (`cb config` rewrites the file, so comments you add are lost). Command-line options override it for a single command.
 
 ```json
 {

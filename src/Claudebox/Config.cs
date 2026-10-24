@@ -41,8 +41,7 @@ internal sealed class Config
         if (!File.Exists(path))
         {
             var defaults = new Config();
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, JsonSerializer.Serialize(defaults, JsonOptions));
+            defaults.Save(path);
             return defaults;
         }
 
@@ -58,7 +57,44 @@ internal sealed class Config
         }
     }
 
+    public void Save() => Save(AppPaths.Config);
+
+    /// <summary>Via a temp file so other cb processes never read a half-written config.</summary>
+    internal void Save(string path)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var temp = $"{path}.{Environment.ProcessId}.tmp";
+        File.WriteAllText(temp, JsonSerializer.Serialize(this, JsonOptions));
+        File.Move(temp, path, overwrite: true);
+    }
+
     public WorkType? FindWork(string name) => Work.GetValueOrDefault(name);
+
+    /// <summary>Adds a work type, or changes the one with that name. Returns true if it was added.</summary>
+    public bool SetWork(string name, string? colour, string? scheme)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ConfigException("The work type needs a name.");
+
+        var added = !Work.TryGetValue(name, out var workType);
+        workType ??= Work[name.Trim()] = new WorkType();
+        if (colour is not null)
+            workType.Colour = IsNone(colour) ? null : Terminal.Colours.Normalise(colour);
+        if (scheme is not null)
+            workType.Scheme = IsNone(scheme) ? null : scheme;
+        return added;
+    }
+
+    public void RemoveWork(string name)
+    {
+        if (!Work.ContainsKey(name))
+            throw new ConfigException($"There's no work type called '{name}'.");
+        if (string.Equals(DefaultWork, name, StringComparison.OrdinalIgnoreCase))
+            throw new ConfigException($"'{name}' is the default work type. Change defaultWork first (cb config set defaultWork <type>).");
+        Work.Remove(name);
+    }
+
+    internal static bool IsNone(string value) => value.Equals("none", StringComparison.OrdinalIgnoreCase);
 }
 
 internal sealed class NameClashConfig
