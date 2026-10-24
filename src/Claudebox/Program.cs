@@ -55,15 +55,31 @@ var restoreCommand = new Command("restore", "Reopen sessions that were running w
 };
 restoreCommand.SetAction(r => SessionCommands.Restore(r.GetValue(restoreAll), r.GetValue(restoreNewWindow), r.GetValue(restoreDryRun)));
 
+// set
+var setName = new Option<string?>("--name", "-n") { Description = "New name" };
+var setWork = new Option<string?>("--work", "-w") { Description = "Work type from config.json (brings its colour and scheme)" };
+var setColour = new Option<string?>("--colour", "--color") { Description = "Tab colour (#RRGGBB or a name), or none" };
+var setScheme = new Option<string?>("--scheme") { Description = "Windows Terminal colour scheme, or none" };
+var setCommand = new Command("set", "Change a session's name, work type, colour or scheme") { sessionArgument, setName, setWork, setColour, setScheme };
+setCommand.SetAction(r => SessionCommands.Set(r.GetValue(sessionArgument)!,
+    new SessionChanges(r.GetValue(setName), r.GetValue(setWork), r.GetValue(setColour), r.GetValue(setScheme))));
+
 // rename
 var renameNewName = new Argument<string>("new-name");
-var renameCommand = new Command("rename", "Rename a session") { sessionArgument, renameNewName };
-renameCommand.SetAction(r => SessionCommands.Rename(r.GetValue(sessionArgument)!, r.GetValue(renameNewName)!));
+var renameCommand = new Command("rename", "Rename a session (same as cb set --name)") { sessionArgument, renameNewName };
+renameCommand.SetAction(r => SessionCommands.Set(r.GetValue(sessionArgument)!, new SessionChanges(Name: r.GetValue(renameNewName))));
 
 // rm
+var rmSession = new Argument<string?>("session")
+{
+    Description = "Session name, number from 'cb ls', or id prefix",
+    Arity = ArgumentArity.ZeroOrOne,
+};
+var rmExited = new Option<bool>("--exited") { Description = "Remove every session that was exited or closed (not interrupted ones)" };
+var rmYes = new Option<bool>("--yes", "-y") { Description = "Don't ask before removing with --exited" };
 var rmForget = new Option<bool>("--forget-transcript") { Description = "Also delete Claude's transcript of the conversation" };
-var rmCommand = new Command("rm", "Remove a session from cb") { sessionArgument, rmForget };
-rmCommand.SetAction(r => SessionCommands.Remove(r.GetValue(sessionArgument)!, r.GetValue(rmForget)));
+var rmCommand = new Command("rm", "Remove a session from cb") { rmSession, rmExited, rmYes, rmForget };
+rmCommand.SetAction(r => SessionCommands.Remove(r.GetValue(rmSession), r.GetValue(rmExited), r.GetValue(rmYes), r.GetValue(rmForget)));
 
 // run (internal: what a new tab executes)
 var runId = new Argument<string>("id");
@@ -77,10 +93,12 @@ var hookCommand = new Command("hook", "Internal: handle a Claude Code hook") { h
 hookCommand.Hidden = true;
 hookCommand.SetAction(r => HookCommand.Handle(r.GetValue(hookEvent)!));
 
-var root = new RootCommand("claudebox: named, restorable Claude Code sessions")
+var root = new RootCommand("claudebox: named, restorable Claude Code sessions. On its own, cb starts a session in this folder.")
 {
-    newCommand, resumeCommand, lsCommand, restoreCommand, renameCommand, rmCommand, runCommand, hookCommand,
+    hereOption,
+    newCommand, resumeCommand, lsCommand, restoreCommand, setCommand, renameCommand, rmCommand, runCommand, hookCommand,
 };
+root.SetAction(r => SessionCommands.Quick(r.GetValue(hereOption)));
 
 try
 {

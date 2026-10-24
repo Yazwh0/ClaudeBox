@@ -146,7 +146,7 @@ internal static class SessionCommands
         var sessions = SessionStore.Default.ReadAll();
         if (sessions.Count == 0)
         {
-            Console.WriteLine("No sessions yet. Start one with: cb new \"<name>\"");
+            Console.WriteLine("No sessions yet. Run cb to start one here, or cb new \"<name>\".");
             return 0;
         }
 
@@ -170,51 +170,93 @@ internal static class SessionCommands
         return 0;
     }
 
-    public static int Rename(string query, string newName)
+    /// <summary>`cb` on its own: a new session in this folder, named after it ("claudebox", "claudebox 2", ...).</summary>
+    public static int Quick(bool here)
     {
-        newName = NameClash.CleanName(newName);
-        if (newName.Length == 0)
-            return Fail("The name can't be empty.");
+        var config = Config.Load();
+        var folder = new DirectoryInfo(Environment.CurrentDirectory).Name.TrimEnd('\\', ':');
+        var name = config.DefaultName.Replace("{folder}", folder.Length > 0 ? folder : "session");
 
+        return New(new NewOptions(name, null, null, null, here, [], ClashAction.Rename, null));
+    }
+
+    public static int Set(string query, SessionChanges changes)
+    {
+        if (changes.IsEmpty)
+            return Fail("Nothing to change. Use --name, --work, --colour or --scheme.");
+
+        var config = Config.Load();
         var store = SessionStore.Default;
         var target = SessionResolver.Resolve(store.ReadAll(), query);
-        var error = store.Update(file =>
-        {
-            if (FindByName(file.Sessions, newName) is { } other && other.Id != target.Id)
-                return $"A session called '{other.Name}' already exists.";
-            if (file.Sessions.Find(s => s.Id == target.Id) is not { } record)
-                return $"'{target.Name}' has just been removed.";
-            record.Name = newName;
-            return null;
-        });
-
-        if (error is not null)
+        if (store.Update(file => changes.ApplyTo(file, target.Id, config)) is { } error)
             return Fail(error);
 
+        var name = changes.Name is null ? target.Name : NameClash.CleanName(changes.Name);
         Console.WriteLine(ProcessLiveness.IsAlive(target)
-            ? $"Renamed to '{newName}'. The tab title changes next time it's resumed."
-            : $"Renamed to '{newName}'.");
+            ? $"Updated '{name}'. Its tab changes next time it's opened."
+            : $"Updated '{name}'.");
         return 0;
     }
 
-    public static int Remove(string query, bool forgetTranscript)
+    /// <summary>Removes one session, or with exited: every session that was deliberately ended (not interrupted ones).</summary>
+    public static int Remove(string? query, bool exited, bool yes, bool forgetTranscript)
     {
+        if (query is null == !exited)
+            return Fail("Give either a session to remove or --exited.");
+
         var store = SessionStore.Default;
-        var record = SessionResolver.Resolve(store.ReadAll(), query);
-        if (ProcessLiveness.IsAlive(record))
-            return Fail($"'{record.Name}' is running. Exit it first.");
+        var sessions = store.ReadAll();
+        List<SessionRecord> targets;
 
-        store.Update(f => f.Sessions.RemoveAll(s => s.Id == record.Id));
-
-        if (forgetTranscript && Transcripts.Find(record.SessionId, record.TranscriptPath) is { } transcript)
+        if (exited)
         {
-            File.Delete(transcript);
-            Console.WriteLine($"Removed '{record.Name}' and deleted its transcript.");
+            targets = sessions.Where(s => !s.Open && !ProcessLiveness.IsAlive(s)).ToList();
+            if (targets.Count == 0)
+            {
+                Console.WriteLine("No exited sessions.");
+                return 0;
+            }
+
+            foreach (var s in targets)
+                Console.WriteLine($"  {s.Name}  ({s.Status}, last active {s.LastActiveAt:yyyy-MM-dd HH:mm})");
+
+            if (!yes)
+            {
+                if (Console.IsInputRedirected)
+                    return Fail("Add --yes to remove these without asking.");
+                Console.WriteLine($"Remove {targets.Count} session{(targets.Count == 1 ? "" : "s")}?");
+                if (Prompt.Choose(('Y', "Yes"), ('N', "No")) != 'Y')
+                    return 1;
+            }
         }
         else
         {
-            Console.WriteLine($"Removed '{record.Name}'. Its Claude transcript is kept.");
+            var record = SessionResolver.Resolve(sessions, query!);
+            if (ProcessLiveness.IsAlive(record))
+                return Fail($"'{record.Name}' is running. Exit it first.");
+            targets = [record];
         }
+
+        var ids = targets.Select(s => s.Id).ToHashSet();
+        store.Update(f => f.Sessions.RemoveAll(s => ids.Contains(s.Id)));
+
+        var deleted = 0;
+        if (forgetTranscript)
+        {
+            foreach (var s in targets)
+            {
+                if (Transcripts.Find(s.SessionId, s.TranscriptPath) is { } transcript)
+                {
+                    File.Delete(transcript);
+                    deleted++;
+                }
+            }
+        }
+
+        var what = targets.Count == 1 ? $"'{targets[0].Name}'" : $"{targets.Count} sessions";
+        Console.WriteLine(forgetTranscript
+            ? $"Removed {what} and deleted {deleted} transcript{(deleted == 1 ? "" : "s")}."
+            : $"Removed {what}. Claude's transcripts are kept.");
         return 0;
     }
 

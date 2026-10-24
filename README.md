@@ -13,14 +13,19 @@ Needs the .NET 10 runtime, [Claude Code](https://code.claude.com) and Windows Te
 ## Use
 
 ```
-cb new "API refactor"                start a session in a new tab
+cb                                   start a session here, named after the folder
+cb new "API refactor"                start a named session in a new tab
 cb new "Login bug" --work hotfix     colour the tab by work type
 cb ls                                list sessions and their status
 cb resume "API refactor"             reopen a session in a new tab
 cb restore                           reopen everything that was running before a reboot
+cb set <session> --name <name> --work <type> --colour <colour> --scheme <scheme>
 cb rename <session> <new name>
-cb rm <session>
+cb rm <session>                      forget a session (its transcript is kept)
+cb rm --exited                       forget every session that was exited or closed
 ```
+
+Changes made with `cb set` to an open session's tab show the next time it's opened. `--colour none` and `--scheme none` clear them.
 
 Sessions can be given by name, name prefix or their number in `cb ls`. Add `--here` to run in the current tab instead of a new one. Anything after `--` is passed to `claude`.
 
@@ -32,6 +37,7 @@ Sessions can be given by name, name prefix or their number in `cb ls`. Add `--he
 {
   "claudePath": null,
   "defaultWork": "feature",
+  "defaultName": "{folder}",
   "nameClash": { "action": "ask", "nonInteractive": "fail", "renamePattern": "{name} {n}" },
   "work": {
     "hotfix":   { "colour": "#C62828" },

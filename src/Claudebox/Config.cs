@@ -19,6 +19,9 @@ internal sealed class Config
 
     public string? ClaudePath { get; set; }
     public string? DefaultWork { get; set; } = "feature";
+
+    /// <summary>Name for `cb` on its own; {folder} is the current folder's name. Clashes get a number.</summary>
+    public string DefaultName { get; set; } = "{folder}";
     public NameClashConfig NameClash { get; set; } = new();
 
     [JsonObjectCreationHandling(JsonObjectCreationHandling.Replace)]
