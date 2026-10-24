@@ -14,8 +14,19 @@ internal sealed record NewOptions(
     ClashAction? OnClash,
     string? RenamePattern);
 
+/// <summary>What `cb restore` does with sessions whose Claude transcript has gone.</summary>
+internal enum MissingAction { Fresh, Skip, Remove }
+
 internal static class SessionCommands
 {
+    public static MissingAction ParseMissing(string value) => value.Trim().ToLowerInvariant() switch
+    {
+        "fresh" => MissingAction.Fresh,
+        "skip" => MissingAction.Skip,
+        "remove" => MissingAction.Remove,
+        _ => throw new ConfigException($"Unknown --missing action '{value}'. Use fresh, skip or remove."),
+    };
+
     public static int New(NewOptions options)
     {
         var config = Config.Load();
@@ -115,7 +126,7 @@ internal static class SessionCommands
     }
 
     /// <summary>Reopens interrupted sessions; with all, or a work type, every session that isn't running (of that type).</summary>
-    public static int Restore(bool all, string? work, bool newWindow, bool dryRun)
+    public static int Restore(bool all, string? work, bool newWindow, bool dryRun, MissingAction? onMissing)
     {
         var lastShutdown = SystemTimes.LastShutdown();
         var everything = all || work is not null;
@@ -132,14 +143,40 @@ internal static class SessionCommands
             return 0;
         }
 
+        // A session that never had a message has no transcript yet, which is fine.
+        var missing = toRestore
+            .Where(s => s.Status != SessionStatus.New && Transcripts.Find(s.SessionId, s.TranscriptPath) is null)
+            .ToHashSet();
         foreach (var s in toRestore)
-        {
-            var missing = s.Status != SessionStatus.New && Transcripts.Find(s.SessionId, s.TranscriptPath) is null;
-            Console.WriteLine($"  {s.Name}{(missing ? " (no transcript found; starts fresh)" : "")}");
-        }
+            Console.WriteLine($"  {s.Name}{(missing.Contains(s) ? " (no transcript found)" : "")}");
 
         if (dryRun)
             return 0;
+
+        if (missing.Count > 0)
+        {
+            var choice = onMissing ?? (Console.IsInputRedirected ? MissingAction.Fresh : AskAboutMissing(missing.Count));
+            switch (choice)
+            {
+                case null:
+                    return 1;
+                case MissingAction.Skip:
+                    toRestore.RemoveAll(missing.Contains);
+                    break;
+                case MissingAction.Remove:
+                    var ids = missing.Select(s => s.Id).ToHashSet();
+                    SessionStore.Default.Update(f => f.Sessions.RemoveAll(s => ids.Contains(s.Id)));
+                    toRestore.RemoveAll(missing.Contains);
+                    Console.WriteLine($"Removed {missing.Count} session{(missing.Count == 1 ? "" : "s")} without a transcript.");
+                    break;
+            }
+
+            if (toRestore.Count == 0)
+            {
+                Console.WriteLine("Nothing else to restore.");
+                return 0;
+            }
+        }
 
         WindowsTerminal.OpenTabs(toRestore, newWindow || !WindowsTerminal.IsHosting);
         Console.WriteLine($"Restored {toRestore.Count} session{(toRestore.Count == 1 ? "" : "s")}.");
@@ -174,6 +211,115 @@ internal static class SessionCommands
         }
         return 0;
     }
+
+    /// <summary>
+    /// Adds a Claude session started outside cb, by session ID (or prefix), or picked from this
+    /// folder's recent ones, then resumes it in a tab unless noOpen.
+    /// </summary>
+    public static int Adopt(string? sessionId, string? name, string? work, string? colour, bool here, bool noOpen)
+    {
+        var config = Config.Load();
+        var store = SessionStore.Default;
+        var sessions = store.ReadAll();
+        var known = sessions.Select(s => s.SessionId).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        TranscriptInfo? transcript;
+        if (sessionId is null)
+        {
+            transcript = PickTranscript(known);
+            if (transcript is null)
+                return 1;
+        }
+        else
+        {
+            var matches = Transcripts.FindByPrefix(sessionId.Trim());
+            if (matches.Count == 0)
+                return Fail($"No Claude session found with ID '{sessionId}'.");
+            if (matches.Count > 1)
+                return Fail($"'{sessionId}' matches {matches.Count} sessions. Give more of the ID.");
+            transcript = Transcripts.Read(matches[0]);
+        }
+
+        if (sessions.FirstOrDefault(s => s.SessionId.Equals(transcript.SessionId, StringComparison.OrdinalIgnoreCase)) is { } existing)
+            return Fail($"That session is already in cb as '{existing.Name}'. Use cb resume \"{existing.Name}\".");
+        if (transcript.Cwd is null)
+            return Fail("The transcript doesn't say which folder the session ran in.");
+        if (!Directory.Exists(transcript.Cwd))
+            return Fail($"The session's folder no longer exists: {transcript.Cwd}");
+
+        work ??= config.DefaultWork;
+        var workType = work is null ? null : config.FindWork(work);
+        if (work is not null && workType is null)
+            return Fail($"Unknown work type '{work}'. Configured: {string.Join(", ", config.Work.Keys)}.");
+
+        var wanted = NameClash.CleanName(name ?? Shorten(transcript.Title) ?? config.DefaultName.Replace("{folder}", Path.GetFileName(transcript.Cwd)));
+        if (wanted.Length == 0)
+            return Fail("The name can't be empty.");
+
+        var record = store.Update(file =>
+        {
+            if (file.Sessions.Any(s => s.SessionId.Equals(transcript.SessionId, StringComparison.OrdinalIgnoreCase)))
+                return null;
+
+            var free = FindByName(file.Sessions, wanted) is null
+                ? wanted
+                : NameClash.NextFreeName(wanted, config.NameClash.RenamePattern, file.Sessions.Select(s => s.Name));
+            var adopted = new SessionRecord
+            {
+                Name = free,
+                Cwd = transcript.Cwd,
+                SessionId = transcript.SessionId,
+                TranscriptPath = transcript.Path,
+                Work = workType is null ? null : work,
+                Colour = (colour ?? workType?.Colour) is { } c ? Colours.Validate(c) : null,
+                Scheme = workType?.Scheme,
+                Status = SessionStatus.Exited,
+                LastActiveAt = transcript.LastWritten,
+                ClosedAt = transcript.LastWritten,
+            };
+            file.Sessions.Add(adopted);
+            return adopted;
+        });
+
+        if (record is null)
+            return Fail("That session was just added to cb elsewhere.");
+
+        Console.WriteLine($"Added '{record.Name}' ({record.Cwd}).");
+        return noOpen ? 0 : Launch(store, config, record, here);
+    }
+
+    /// <summary>Offers this folder's most recent Claude sessions that cb doesn't know about.</summary>
+    private static TranscriptInfo? PickTranscript(HashSet<string> known)
+    {
+        var cwd = Environment.CurrentDirectory;
+        var candidates = Transcripts.ForFolder(cwd)
+            .Where(path => !known.Contains(Path.GetFileNameWithoutExtension(path)))
+            .Take(9)
+            .Select(Transcripts.Read)
+            .ToList();
+
+        if (candidates.Count == 0)
+        {
+            Console.Error.WriteLine($"No Claude sessions in {cwd} that cb doesn't already have. Give a session ID to adopt one from elsewhere.");
+            return null;
+        }
+        if (Console.IsInputRedirected)
+        {
+            Console.Error.WriteLine("Give the session ID to adopt (there's no one to ask).");
+            return null;
+        }
+
+        Console.WriteLine($"Claude sessions in {cwd}:");
+        var options = candidates
+            .Select((t, i) => ((char)('1' + i), $"{t.LastWritten:yyyy-MM-dd HH:mm}  {Shorten(t.Title) ?? "(untitled)"}  {t.SessionId[..8]}"))
+            .Append(('C', "Cancel"))
+            .ToArray();
+        var key = Prompt.Choose(options);
+        return key == 'C' ? null : candidates[key - '1'];
+    }
+
+    private static string? Shorten(string? title) =>
+        string.IsNullOrWhiteSpace(title) ? null : title.Length <= 50 ? title.Trim() : title[..47].Trim() + "...";
 
     /// <summary>`cb` on its own: a new session in this folder, named from config ("Claude", "Claude 2", ...).</summary>
     public static int Quick(bool here)
@@ -267,6 +413,24 @@ internal static class SessionCommands
             ? $"Removed {what} and deleted {deleted} transcript{(deleted == 1 ? "" : "s")}."
             : $"Removed {what}. Claude's transcripts are kept.");
         return 0;
+    }
+
+    private static MissingAction? AskAboutMissing(int count)
+    {
+        Console.WriteLine(count == 1
+            ? "Claude's transcript for 1 session is gone, so it can't carry on where it left off."
+            : $"Claude's transcripts for {count} sessions are gone, so they can't carry on where they left off.");
+        return Prompt.Choose(
+            ('F', "Start them as new conversations"),
+            ('S', "Skip them this time"),
+            ('R', "Remove them from cb"),
+            ('C', "Cancel")) switch
+        {
+            'F' => MissingAction.Fresh,
+            'S' => MissingAction.Skip,
+            'R' => MissingAction.Remove,
+            _ => null,
+        };
     }
 
     private static ClashAction? AskAboutClash(SessionRecord existing)

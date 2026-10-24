@@ -4,7 +4,7 @@ using Claudebox;
 using Claudebox.Commands;
 using Claudebox.Registry;
 
-var hereOption = new Option<bool>("--here") { Description = "Run in this tab instead of opening a new one" };
+var hereOption = new Option<bool>("--here") { Description = "Run in this tab instead of opening a new one (keeps this tab's colours)" };
 var sessionArgument = new Argument<string>("session") { Description = "Session name, number from 'cb ls', or id prefix" };
 
 // new
@@ -51,12 +51,17 @@ var restoreAll = new Option<bool>("--all", "-a") { Description = "Reopen every s
 var restoreWork = new Option<string?>("--work", "-w") { Description = "Reopen every session of this work type that isn't running" };
 var restoreNewWindow = new Option<bool>("--new-window") { Description = "Open the tabs in a new window" };
 var restoreDryRun = new Option<bool>("--dry-run") { Description = "Show what would be restored without opening anything" };
+var restoreMissing = new Option<string?>("--missing")
+{
+    Description = "If a session's transcript is gone: fresh (start a new conversation), skip or remove (default: ask)",
+};
 var restoreCommand = new Command("restore", "Reopen sessions that were running when Windows shut down")
 {
-    restoreAll, restoreWork, restoreNewWindow, restoreDryRun,
+    restoreAll, restoreWork, restoreNewWindow, restoreDryRun, restoreMissing,
 };
 restoreCommand.SetAction(r => SessionCommands.Restore(
-    r.GetValue(restoreAll), r.GetValue(restoreWork), r.GetValue(restoreNewWindow), r.GetValue(restoreDryRun)));
+    r.GetValue(restoreAll), r.GetValue(restoreWork), r.GetValue(restoreNewWindow), r.GetValue(restoreDryRun),
+    r.GetValue(restoreMissing) is { } missing ? SessionCommands.ParseMissing(missing) : null));
 
 // set
 var setName = new Option<string?>("--name", "-n") { Description = "New name" };
@@ -85,6 +90,35 @@ var rmForget = new Option<bool>("--forget-transcript") { Description = "Also del
 var rmCommand = new Command("rm", "Remove a session from cb") { rmSession, rmExited, rmWork, rmYes, rmForget };
 rmCommand.SetAction(r => SessionCommands.Remove(
     r.GetValue(rmSession), r.GetValue(rmExited), r.GetValue(rmWork), r.GetValue(rmYes), r.GetValue(rmForget)));
+
+// adopt
+var adoptSession = new Argument<string?>("session-id")
+{
+    Description = "Claude's session ID, or the start of it (default: pick from this folder's sessions)",
+    Arity = ArgumentArity.ZeroOrOne,
+};
+var adoptName = new Option<string?>("--name", "-n") { Description = "Name for it (default: the conversation's title)" };
+var adoptWork = new Option<string?>("--work", "-w") { Description = "Work type from config.json" };
+var adoptColour = new Option<string?>("--colour", "--color") { Description = "Tab colour (#RRGGBB or a name); overrides the work type's" };
+var adoptNoOpen = new Option<bool>("--no-open") { Description = "Just add it; don't resume it now" };
+var adoptCommand = new Command("adopt", "Add a Claude session that was started outside cb")
+{
+    adoptSession, adoptName, adoptWork, adoptColour, hereOption, adoptNoOpen,
+};
+adoptCommand.SetAction(r => SessionCommands.Adopt(
+    r.GetValue(adoptSession), r.GetValue(adoptName), r.GetValue(adoptWork), r.GetValue(adoptColour),
+    r.GetValue(hereOption), r.GetValue(adoptNoOpen)));
+
+// startup
+var startupEnableCommand = new Command("enable", "Run cb restore when you log in");
+startupEnableCommand.SetAction(_ => OperatingSystem.IsWindows() ? StartupCommands.Enable() : 1);
+var startupDisableCommand = new Command("disable", "Stop running cb restore when you log in");
+startupDisableCommand.SetAction(_ => OperatingSystem.IsWindows() ? StartupCommands.Disable() : 1);
+var startupCommand = new Command("startup", "Show or change whether cb restore runs when you log in")
+{
+    startupEnableCommand, startupDisableCommand,
+};
+startupCommand.SetAction(_ => OperatingSystem.IsWindows() ? StartupCommands.Show() : 1);
 
 // config
 var configKey = new Argument<string>("setting") { Description = "Setting name, e.g. defaultName or nameClash.action" };
@@ -143,8 +177,8 @@ var version = typeof(Program).Assembly
 var root = new RootCommand($"BitMagic ClaudeBox {version}: named, restorable Claude Code sessions. On its own, cb starts a session in this folder.")
 {
     hereOption,
-    newCommand, resumeCommand, lsCommand, restoreCommand, setCommand, renameCommand, rmCommand,
-    configCommand, workCommand, aliasCommand, runCommand, hookCommand,
+    newCommand, resumeCommand, lsCommand, restoreCommand, setCommand, renameCommand, rmCommand, adoptCommand,
+    startupCommand, configCommand, workCommand, aliasCommand, runCommand, hookCommand,
 };
 root.SetAction(r => SessionCommands.Quick(r.GetValue(hereOption)));
 commandNames.UnionWith(root.Subcommands.SelectMany(c => c.Aliases.Prepend(c.Name)));

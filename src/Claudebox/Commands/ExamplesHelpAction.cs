@@ -26,6 +26,8 @@ internal sealed class ExamplesHelpAction(SynchronousCommandLineAction standardHe
           cb rm --exited                      forget every exited or closed session
           cb rm --work hotfix                 forget every hotfix session that isn't running
           cb rm --exited -y                   ... without asking first
+          cb adopt                            add a Claude session started outside cb (pick from this folder)
+          cb startup enable                   run cb restore when you log in
           cb config                           show your settings
           cb config set defaultName Claude    change a setting (cb config unset to go back)
           cb work add bug --colour orange     add a work type, or change one's colour

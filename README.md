@@ -23,7 +23,7 @@ cb restore                          after a reboot, reopen what was running
 
 `cb -?` shows every command with examples; `cb <command> -?` shows all of a command's options.
 
-Sessions can be given by name, the start of a name, their number in `cb ls`, or the start of their id. Commands that launch Claude open a new tab in the current Windows Terminal window; add `--here` to use the current tab instead.
+Sessions can be given by name, the start of a name, their number in `cb ls`, or the start of their id. Commands that launch Claude open a new tab in the current Windows Terminal window; add `--here` to use the current tab instead. A `--here` session keeps the current tab's colours: Windows Terminal can't change a tab's colour or scheme once it's open, so only the title is set.
 
 ## Commands
 
@@ -78,6 +78,11 @@ Reopens sessions in tabs, all in one go. On its own it reopens only sessions tha
 | `-w`, `--work <type>` | Reopen every session of this work type that isn't running |
 | `--new-window` | Open the tabs in a new window |
 | `--dry-run` | Show what would be reopened without opening anything |
+| `--missing <action>` | If Claude's transcript for a session is gone: `fresh` (start a new conversation), `skip` or `remove` (from cb). Without it, `cb restore` asks, or starts them fresh when there's no one to ask |
+
+### `cb startup`
+
+Shows whether `cb restore` runs when you log in. `cb startup enable` turns it on and `cb startup disable` turns it off. It's added to your Startup apps (the per-user Run key), and opens a new Windows Terminal window with the restored sessions as tabs.
 
 ### `cb set <session>`
 
@@ -104,6 +109,18 @@ Forgets sessions. Claude's transcripts are kept unless you ask otherwise, and ru
 | `-w`, `--work <type>` | Every session of this work type that isn't running; with `--exited`, only the exited ones |
 | `-y`, `--yes` | Don't ask before removing several |
 | `--forget-transcript` | Also delete Claude's transcript of the conversation |
+
+### `cb adopt [<session-id>]`
+
+Adds a Claude session that was started outside cb, then resumes it in a tab. Without a session ID it lists the recent Claude sessions in this folder for you to pick from; with one (or the start of one) it finds that session in any folder. It's named after the conversation's title.
+
+| Option | |
+| --- | --- |
+| `-n`, `--name <name>` | Name for it instead of the title |
+| `-w`, `--work <type>` | Work type from `config.json` |
+| `--colour <colour>` | Tab colour; overrides the work type's |
+| `--here` | Run in this tab instead of opening a new one |
+| `--no-open` | Just add it; don't resume it now |
 
 ### `cb config`
 
