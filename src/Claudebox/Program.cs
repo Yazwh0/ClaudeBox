@@ -111,6 +111,19 @@ workLsCommand.SetAction(_ => ConfigCommands.ListWork());
 var workCommand = new Command("work", "List, add or remove work types") { workLsCommand, workAddCommand, workRmCommand };
 workCommand.SetAction(_ => ConfigCommands.ListWork());
 
+// alias
+var commandNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase); // filled in once root exists
+var aliasName = new Argument<string>("alias") { Description = "Word to type after cb, e.g. c" };
+var aliasTarget = new Argument<string>("command") { Description = "What it runs, in quotes, e.g. \"rm --exited --yes\"" };
+var aliasAddCommand = new Command("add", "Add an alias, or change one") { aliasName, aliasTarget };
+aliasAddCommand.SetAction(r => ConfigCommands.AddAlias(r.GetValue(aliasName)!, r.GetValue(aliasTarget)!, commandNames));
+var aliasRmCommand = new Command("rm", "Remove an alias") { aliasName };
+aliasRmCommand.SetAction(r => ConfigCommands.RemoveAlias(r.GetValue(aliasName)!));
+var aliasLsCommand = new Command("ls", "List aliases");
+aliasLsCommand.SetAction(_ => ConfigCommands.ListAliases());
+var aliasCommand = new Command("alias", "List, add or remove shortcuts for cb commands") { aliasLsCommand, aliasAddCommand, aliasRmCommand };
+aliasCommand.SetAction(_ => ConfigCommands.ListAliases());
+
 // run (internal: what a new tab executes)
 var runId = new Argument<string>("id");
 var runCommand = new Command("run", "Internal: run a session in this console") { runId };
@@ -131,15 +144,18 @@ var root = new RootCommand($"BitMagic ClaudeBox {version}: named, restorable Cla
 {
     hereOption,
     newCommand, resumeCommand, lsCommand, restoreCommand, setCommand, renameCommand, rmCommand,
-    configCommand, workCommand, runCommand, hookCommand,
+    configCommand, workCommand, aliasCommand, runCommand, hookCommand,
 };
 root.SetAction(r => SessionCommands.Quick(r.GetValue(hereOption)));
+commandNames.UnionWith(root.Subcommands.SelectMany(c => c.Aliases.Prepend(c.Name)));
 
 var helpOption = root.Options.OfType<System.CommandLine.Help.HelpOption>().Single();
 helpOption.Action = new ExamplesHelpAction((System.CommandLine.Invocation.SynchronousCommandLineAction)helpOption.Action!);
 
 try
 {
+    if (Aliases.MightBeAlias(args, commandNames))
+        args = Aliases.Expand(args, Config.Load().Aliases);
     return root.Parse(args).Invoke(new InvocationConfiguration { EnableDefaultExceptionHandler = false });
 }
 catch (Exception e) when (e is SessionNotFoundException or ConfigException or FileNotFoundException)

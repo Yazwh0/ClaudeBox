@@ -33,6 +33,10 @@ internal sealed class Config
         ["research"] = new() { Colour = "blue" },
     };
 
+    /// <summary>Shortcuts for cb commands, e.g. "c": "rm --exited --yes" (see Aliases).</summary>
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Replace)]
+    public Dictionary<string, string> Aliases { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>Loads config.json, writing the defaults on first run so there is something to edit.</summary>
     public static Config Load() => Load(AppPaths.Config);
 
@@ -49,6 +53,7 @@ internal sealed class Config
         {
             var config = JsonSerializer.Deserialize<Config>(File.ReadAllText(path), JsonOptions) ?? new Config();
             config.Work = new Dictionary<string, WorkType>(config.Work, StringComparer.OrdinalIgnoreCase);
+            config.Aliases = new Dictionary<string, string>(config.Aliases, StringComparer.OrdinalIgnoreCase);
             return config;
         }
         catch (JsonException e)
@@ -92,6 +97,21 @@ internal sealed class Config
         if (string.Equals(DefaultWork, name, StringComparison.OrdinalIgnoreCase))
             throw new ConfigException($"'{name}' is the default work type. Change defaultWork first (cb config set defaultWork <type>).");
         Work.Remove(name);
+    }
+
+    /// <summary>Adds an alias, or changes the one with that name. Returns true if it was added.</summary>
+    public bool SetAlias(string name, string command, ISet<string> commands)
+    {
+        (name, command) = Claudebox.Aliases.Check(name, command, commands);
+        var added = !Aliases.Remove(name);
+        Aliases[name] = command;
+        return added;
+    }
+
+    public void RemoveAlias(string name)
+    {
+        if (!Aliases.Remove(name))
+            throw new ConfigException($"There's no alias called '{name}'.");
     }
 
     internal static bool IsNone(string value) => value.Equals("none", StringComparison.OrdinalIgnoreCase);

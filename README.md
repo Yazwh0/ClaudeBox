@@ -126,6 +126,17 @@ Lists the work types, their colours, and which is the default.
 
 Sessions keep the colour they were given, so changing a work type doesn't recolour existing sessions; use `cb set <session> --work <type>` for that.
 
+### `cb alias`
+
+Lists your aliases: shortcuts for `cb` commands you use a lot. With `"c": "rm --exited --yes"`, `cb c` runs `cb rm --exited --yes`, and anything you type after the alias is added to the end.
+
+| Command | Description |
+| --- | --- |
+| `cb alias add <alias> "<command>"` | Add an alias, or change one, e.g. `cb alias add c "rm --exited --yes"` |
+| `cb alias rm <alias>` | Remove an alias |
+
+An alias is one word and can't be the name of a `cb` command. Its command is what you'd type after `cb`, with quotes around parts that have spaces, and it can't use another alias.
+
 ## Statuses
 
 | Status | |
@@ -153,7 +164,8 @@ Sessions keep the colour they were given, so changing a work type doesn't recolo
     "hotfix":   { "colour": "red" },
     "feature":  { "colour": "green" },
     "research": { "colour": "blue" }
-  }
+  },
+  "aliases": {}
 }
 ```
 
@@ -166,6 +178,7 @@ Sessions keep the colour they were given, so changing a work type doesn't recolo
 | `nameClash.nonInteractive` | The same, when there's no one to ask (e.g. in a script) |
 | `nameClash.renamePattern` | How `rename` makes a free name; needs `{n}` |
 | `work` | Work types: a tab `colour` and optionally a Windows Terminal colour `scheme` for the whole pane |
+| `aliases` | Shortcuts for `cb` commands (see [`cb alias`](#cb-alias)) |
 
 Colours can be a name or hex (`#RRGGBB` or `#RGB`), and names are saved as names rather than converted to hex. `red`, `orange`, `amber`, `yellow`, `green`, `teal`, `blue`, `purple`, `pink` and `grey` are picked to look good as tab colours; any other standard web colour name works too (`crimson`, `navy`, `darkorange`, ...). Spaces and case don't matter, so `Dark Orange` is `darkorange`.
 

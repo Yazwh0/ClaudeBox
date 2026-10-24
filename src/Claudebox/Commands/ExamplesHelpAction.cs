@@ -29,6 +29,7 @@ internal sealed class ExamplesHelpAction(SynchronousCommandLineAction standardHe
           cb config                           show your settings
           cb config set defaultName Claude    change a setting (cb config unset to go back)
           cb work add bug --colour orange     add a work type, or change one's colour
+          cb alias add c "rm --exited -y"     make cb c a shortcut for that command
 
         Run cb <command> -? for all of a command's options.
         Settings: %APPDATA%\claudebox\config.json (cb config edit opens it)

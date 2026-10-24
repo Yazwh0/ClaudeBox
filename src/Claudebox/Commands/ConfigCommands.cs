@@ -22,7 +22,10 @@ internal static class ConfigCommands
         Console.WriteLine("Work types:");
         WriteWorkTypes(config);
         Console.WriteLine();
-        Console.WriteLine("Change with: cb config set <setting> <value>, cb config unset <setting>, cb work add|rm, or cb config edit");
+        Console.WriteLine("Aliases:");
+        WriteAliases(config);
+        Console.WriteLine();
+        Console.WriteLine("Change with: cb config set <setting> <value>, cb config unset <setting>, cb work add|rm, cb alias add|rm, or cb config edit");
         return 0;
     }
 
@@ -91,6 +94,43 @@ internal static class ConfigCommands
         config.Save();
         Console.WriteLine($"Removed work type '{name}'. Sessions that used it keep their colours.");
         return 0;
+    }
+
+    public static int ListAliases()
+    {
+        WriteAliases(Config.Load());
+        return 0;
+    }
+
+    public static int AddAlias(string name, string command, ISet<string> commands)
+    {
+        var config = Config.Load();
+        var added = config.SetAlias(name, command, commands);
+        config.Save();
+        Console.WriteLine($"{(added ? "Added" : "Updated")} alias: cb {name.Trim()} runs cb {command.Trim()}");
+        return 0;
+    }
+
+    public static int RemoveAlias(string name)
+    {
+        var config = Config.Load();
+        config.RemoveAlias(name);
+        config.Save();
+        Console.WriteLine($"Removed alias '{name}'.");
+        return 0;
+    }
+
+    private static void WriteAliases(Config config)
+    {
+        if (config.Aliases.Count == 0)
+        {
+            Console.WriteLine("  (none) Add one with: cb alias add c \"rm --exited --yes\"");
+            return;
+        }
+
+        var width = config.Aliases.Keys.Max(k => k.Length);
+        foreach (var (name, command) in config.Aliases.OrderBy(a => a.Key, StringComparer.OrdinalIgnoreCase))
+            Console.WriteLine($"  cb {name.PadRight(width)}  runs  cb {command}");
     }
 
     private static void WriteWorkTypes(Config config)
