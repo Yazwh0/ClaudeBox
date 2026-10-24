@@ -148,9 +148,9 @@ Sessions keep the colour they were given, so changing a work type doesn't recolo
   "nameClash": { "action": "ask", "nonInteractive": "fail", "renamePattern": "{name} {n}" },
   "work": {
     "general":  {},
-    "hotfix":   { "colour": "#C62828" },
-    "feature":  { "colour": "#2E7D32" },
-    "research": { "colour": "#1565C0" }
+    "hotfix":   { "colour": "red" },
+    "feature":  { "colour": "green" },
+    "research": { "colour": "blue" }
   }
 }
 ```
@@ -165,7 +165,7 @@ Sessions keep the colour they were given, so changing a work type doesn't recolo
 | `nameClash.renamePattern` | How `rename` makes a free name; needs `{n}` |
 | `work` | Work types: a tab `colour` and optionally a Windows Terminal colour `scheme` for the whole pane |
 
-Colours can be `#RRGGBB`, `#RGB` or one of `red`, `orange`, `amber`, `yellow`, `green`, `teal`, `blue`, `purple`, `pink` or `grey`.
+Colours can be a name or hex (`#RRGGBB` or `#RGB`), and names are saved as names rather than converted to hex. `red`, `orange`, `amber`, `yellow`, `green`, `teal`, `blue`, `purple`, `pink` and `grey` are picked to look good as tab colours; any other standard web colour name works too (`crimson`, `navy`, `darkorange`, ...). Spaces and case don't matter, so `Dark Orange` is `darkorange`.
 
 ## How it works
 

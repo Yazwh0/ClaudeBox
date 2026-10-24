@@ -54,13 +54,13 @@ public class LaunchArgumentTests
     public void TabArguments_IncludeColourSchemeAndEscapeSemicolons()
     {
         var record = Record("a;b");
-        record.Colour = "#C62828";
+        record.Colour = "crimson";
         record.Scheme = "Red Alert";
 
         var args = WindowsTerminal.BuildTabArguments(record, ["cb.exe"]);
 
         Assert.Equal("a\\;b", args[args.IndexOf("--title") + 1]);
-        Assert.Equal("#C62828", args[args.IndexOf("--tabColor") + 1]);
+        Assert.Equal("#DC143C", args[args.IndexOf("--tabColor") + 1]);
         Assert.Equal("Red Alert", args[args.IndexOf("--colorScheme") + 1]);
     }
 

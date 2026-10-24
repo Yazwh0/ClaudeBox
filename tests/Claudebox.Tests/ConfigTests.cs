@@ -49,18 +49,42 @@ public sealed class ConfigTests : IDisposable
     }
 
     [Theory]
-    [InlineData("red", "#C62828")]
+    [InlineData("Red", "red")]
+    [InlineData("Dark Orange", "darkorange")]
+    [InlineData("crimson", "crimson")]
     [InlineData("#abc", "#AABBCC")]
     [InlineData("#c62828", "#C62828")]
-    public void Colours_Normalise(string input, string expected)
+    public void Colours_Validate_KeepsNamesAndTidiesHex(string input, string stored)
     {
-        Assert.Equal(expected, Colours.Normalise(input));
+        Assert.Equal(stored, Colours.Validate(input));
+    }
+
+    [Theory]
+    [InlineData("red", "#C62828")]        // ours beats the web's #FF0000
+    [InlineData("crimson", "#DC143C")]
+    [InlineData("navy", "#000080")]
+    [InlineData("darkorange", "#FF8C00")]
+    [InlineData("#abc", "#AABBCC")]
+    public void Colours_ToHex(string colour, string hex)
+    {
+        Assert.Equal(hex, Colours.ToHex(colour));
+    }
+
+    [Theory]
+    [InlineData("blurple")]
+    [InlineData("Control")]      // a Windows system colour, not a web one
+    [InlineData("transparent")]
+    [InlineData("#12345")]
+    public void Colours_Invalid_Throws(string colour)
+    {
+        Assert.Throws<ConfigException>(() => Colours.Validate(colour));
     }
 
     [Fact]
-    public void Colours_Invalid_Throws()
+    public void Colours_Ansi_IgnoresInvalid()
     {
-        Assert.Throws<ConfigException>(() => Colours.Normalise("blurple"));
+        Assert.Equal("", Colours.Ansi("blurple"));
+        Assert.Equal("\e[38;2;220;20;60m", Colours.Ansi("crimson"));
     }
 
     public void Dispose()

@@ -36,7 +36,7 @@ internal static class WindowsTerminal
     {
         List<string> args = ["new-tab", "--title", Escape(record.Name), "--suppressApplicationTitle"];
         if (record.Colour is { } colour)
-            args.AddRange(["--tabColor", colour]);
+            args.AddRange(["--tabColor", Colours.ToHex(colour)]);
         if (record.Scheme is { } scheme)
             args.AddRange(["--colorScheme", Escape(scheme)]);
         args.AddRange(["-d", Escape(record.Cwd)]);

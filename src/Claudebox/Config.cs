@@ -28,9 +28,9 @@ internal sealed class Config
     public Dictionary<string, WorkType> Work { get; set; } = new(StringComparer.OrdinalIgnoreCase)
     {
         ["general"] = new(),
-        ["hotfix"] = new() { Colour = "#C62828" },
-        ["feature"] = new() { Colour = "#2E7D32" },
-        ["research"] = new() { Colour = "#1565C0" },
+        ["hotfix"] = new() { Colour = "red" },
+        ["feature"] = new() { Colour = "green" },
+        ["research"] = new() { Colour = "blue" },
     };
 
     /// <summary>Loads config.json, writing the defaults on first run so there is something to edit.</summary>
@@ -79,7 +79,7 @@ internal sealed class Config
         var added = !Work.TryGetValue(name, out var workType);
         workType ??= Work[name.Trim()] = new WorkType();
         if (colour is not null)
-            workType.Colour = IsNone(colour) ? null : Terminal.Colours.Normalise(colour);
+            workType.Colour = IsNone(colour) ? null : Terminal.Colours.Validate(colour);
         if (scheme is not null)
             workType.Scheme = IsNone(scheme) ? null : scheme;
         return added;

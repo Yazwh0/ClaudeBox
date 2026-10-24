@@ -29,12 +29,12 @@ internal sealed record SessionChanges(string? Name = null, string? Work = null, 
             if (config.FindWork(Work) is not { } workType)
                 return $"Unknown work type '{Work}'. Configured: {string.Join(", ", config.Work.Keys)}.";
             record.Work = Work;
-            record.Colour = workType.Colour is null ? null : Colours.Normalise(workType.Colour);
+            record.Colour = workType.Colour is null ? null : Colours.Validate(workType.Colour);
             record.Scheme = workType.Scheme;
         }
 
         if (Colour is not null)
-            record.Colour = IsNone(Colour) ? null : Colours.Normalise(Colour);
+            record.Colour = IsNone(Colour) ? null : Colours.Validate(Colour);
         if (Scheme is not null)
             record.Scheme = IsNone(Scheme) ? null : Scheme;
 

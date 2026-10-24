@@ -48,10 +48,10 @@ public sealed class ConfigSettingsTests : IDisposable
     {
         var config = new Config();
         Assert.True(config.SetWork("bug", "orange", null));
-        Assert.Equal("#EF6C00", config.FindWork("BUG")?.Colour);
+        Assert.Equal("orange", config.FindWork("BUG")?.Colour);
 
         Assert.False(config.SetWork("Bug", null, "Red Alert"));
-        Assert.Equal("#EF6C00", config.FindWork("bug")?.Colour);
+        Assert.Equal("orange", config.FindWork("bug")?.Colour);
         Assert.Equal("Red Alert", config.FindWork("bug")?.Scheme);
 
         config.SetWork("bug", "none", "none");

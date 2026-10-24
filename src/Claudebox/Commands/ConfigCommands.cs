@@ -101,11 +101,11 @@ internal static class ConfigCommands
         {
             var label = name.PadRight(width);
             if (useColour && work.Colour is { } colour)
-                label = Colours.Ansi(Colours.Normalise(colour)) + label + Colours.Reset;
+                label = Colours.Ansi(colour) + label + Colours.Reset;
 
             var isDefault = string.Equals(name, config.DefaultWork, StringComparison.OrdinalIgnoreCase) ? "  (default)" : "";
             var scheme = work.Scheme is null ? "" : $"  scheme: {work.Scheme}";
-            Console.WriteLine($"  {label}  {work.Colour ?? "no colour",-9}{scheme}{isDefault}");
+            Console.WriteLine($"  {label}  {work.Colour ?? "no colour",-10}{scheme}{isDefault}");
         }
     }
 }

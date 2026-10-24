@@ -54,7 +54,7 @@ public class SessionChangesTests
 
         var record = file.Sessions[0];
         Assert.Equal("hotfix", record.Work);
-        Assert.Equal("#C62828", record.Colour);
+        Assert.Equal("red", record.Colour);
         Assert.Equal("Red Alert", record.Scheme);
     }
 
@@ -63,7 +63,7 @@ public class SessionChangesTests
     {
         var file = File();
         Assert.Null(new SessionChanges(Work: "hotfix", Colour: "amber").ApplyTo(file, "a", Config));
-        Assert.Equal("#FFB300", file.Sessions[0].Colour);
+        Assert.Equal("amber", file.Sessions[0].Colour);
     }
 
     [Fact]

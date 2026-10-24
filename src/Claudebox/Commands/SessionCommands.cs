@@ -79,7 +79,7 @@ internal static class SessionCommands
                 Name = name,
                 Cwd = cwd,
                 Work = workType is null ? null : work,
-                Colour = colour is null ? null : Colours.Normalise(colour),
+                Colour = colour is null ? null : Colours.Validate(colour),
                 Scheme = workType?.Scheme,
                 ClaudeArgs = [.. options.ClaudeArgs],
             };
