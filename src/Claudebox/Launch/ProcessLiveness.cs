@@ -27,7 +27,14 @@ internal static class ProcessLiveness
         }
     }
 
-    /// <summary>The status to show: a session marked open whose process has gone was interrupted.</summary>
-    public static string EffectiveStatus(SessionRecord record) =>
-        record.Open && !IsAlive(record) ? SessionStatus.Interrupted : record.Status;
+    /// <summary>
+    /// The status to show: a session marked open whose process has gone was interrupted. One
+    /// that isn't marked open but is alive was adopted while running outside cb.
+    /// </summary>
+    public static string EffectiveStatus(SessionRecord record) => (record.Open, IsAlive(record)) switch
+    {
+        (true, false) => SessionStatus.Interrupted,
+        (false, true) => SessionStatus.Running,
+        _ => record.Status,
+    };
 }

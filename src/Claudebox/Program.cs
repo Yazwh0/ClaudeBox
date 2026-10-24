@@ -101,13 +101,14 @@ var adoptName = new Option<string?>("--name", "-n") { Description = "Name for it
 var adoptWork = new Option<string?>("--work", "-w") { Description = "Work type from config.json" };
 var adoptColour = new Option<string?>("--colour", "--color") { Description = "Tab colour (#RRGGBB or a name); overrides the work type's" };
 var adoptNoOpen = new Option<bool>("--no-open") { Description = "Just add it; don't resume it now" };
+var adoptRunning = new Option<bool>("--running") { Description = "Add every Claude session that's running now, from any folder (they're left open where they are)" };
 var adoptCommand = new Command("adopt", "Add a Claude session that was started outside cb")
 {
-    adoptSession, adoptName, adoptWork, adoptColour, hereOption, adoptNoOpen,
+    adoptSession, adoptName, adoptWork, adoptColour, hereOption, adoptNoOpen, adoptRunning,
 };
 adoptCommand.SetAction(r => SessionCommands.Adopt(
     r.GetValue(adoptSession), r.GetValue(adoptName), r.GetValue(adoptWork), r.GetValue(adoptColour),
-    r.GetValue(hereOption), r.GetValue(adoptNoOpen)));
+    r.GetValue(hereOption), r.GetValue(adoptNoOpen), r.GetValue(adoptRunning)));
 
 // startup
 var startupEnableCommand = new Command("enable", "Run cb restore when you log in");

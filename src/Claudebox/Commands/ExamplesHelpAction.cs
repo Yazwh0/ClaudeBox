@@ -27,6 +27,8 @@ internal sealed class ExamplesHelpAction(SynchronousCommandLineAction standardHe
           cb rm --work hotfix                 forget every hotfix session that isn't running
           cb rm --exited -y                   ... without asking first
           cb adopt                            add a Claude session started outside cb (pick from this folder)
+          cb adopt 56b8da2c                   ... or one by Claude's session ID (or its start), from any folder
+          cb adopt --running                  add every Claude session that's open now, leaving them open
           cb startup enable                   run cb restore when you log in
           cb config                           show your settings
           cb config set defaultName Claude    change a setting (cb config unset to go back)

@@ -19,4 +19,8 @@ internal static class AppPaths
 
     public static string ClaudeProjects =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude", "projects");
+
+    /// <summary>Claude Code's own list of running sessions, one &lt;pid&gt;.json each (see RunningClaude).</summary>
+    public static string ClaudeSessions =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude", "sessions");
 }

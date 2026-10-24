@@ -112,7 +112,7 @@ Forgets sessions. Claude's transcripts are kept unless you ask otherwise, and ru
 
 ### `cb adopt [<session-id>]`
 
-Adds a Claude session that was started outside cb, then resumes it in a tab. Without a session ID it lists the recent Claude sessions in this folder for you to pick from; with one (or the start of one) it finds that session in any folder. It's named after the conversation's title.
+Adds a Claude session that was started outside cb, then resumes it in a tab (unless it's still running somewhere else; see below). Without a session ID it lists the recent Claude sessions in this folder for you to pick from; with one (or the start of one) it finds that session in any folder. It's named after the name you gave it in Claude, or else the conversation's title.
 
 | Option | |
 | --- | --- |
@@ -121,6 +121,9 @@ Adds a Claude session that was started outside cb, then resumes it in a tab. Wit
 | `--colour <colour>` | Tab colour; overrides the work type's |
 | `--here` | Run in this tab instead of opening a new one |
 | `--no-open` | Just add it; don't resume it now |
+| `--running` | Add every Claude session that's running now, from any folder |
+
+A session that's still running somewhere else is only added, not opened a second time. It shows as `running` in `cb ls` until you close it, then `cb resume` carries it on in a cb tab. cb finds running sessions from a file Claude Code keeps for each one (`~/.claude/sessions`); that isn't a documented file, so if a Claude update changes it, cb can't tell which outside sessions are running.
 
 ### `cb config`
 

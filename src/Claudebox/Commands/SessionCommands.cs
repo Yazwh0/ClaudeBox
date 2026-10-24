@@ -213,20 +213,34 @@ internal static class SessionCommands
     }
 
     /// <summary>
-    /// Adds a Claude session started outside cb, by session ID (or prefix), or picked from this
-    /// folder's recent ones, then resumes it in a tab unless noOpen.
+    /// Adds Claude sessions started outside cb: one by session ID (or prefix) or picked from this
+    /// folder's recent ones, or with running, every one that's open now. A session that's
+    /// already running is only added, never opened a second time; others are resumed in a tab
+    /// unless noOpen.
     /// </summary>
-    public static int Adopt(string? sessionId, string? name, string? work, string? colour, bool here, bool noOpen)
+    public static int Adopt(string? sessionId, string? name, string? work, string? colour, bool here, bool noOpen, bool running)
     {
+        if (running && (sessionId is not null || name is not null))
+            return Fail("--running adopts every running session, so it can't take a session ID or --name.");
+
         var config = Config.Load();
+        work ??= config.DefaultWork;
+        var workType = work is null ? null : config.FindWork(work);
+        if (work is not null && workType is null)
+            return Fail($"Unknown work type '{work}'. Configured: {string.Join(", ", config.Work.Keys)}.");
+        var adoption = new Adoption(config, workType is null ? null : work, workType, colour);
+
         var store = SessionStore.Default;
-        var sessions = store.ReadAll();
-        var known = sessions.Select(s => s.SessionId).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var known = store.ReadAll().Select(s => s.SessionId).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var live = RunningClaude.All().ToDictionary(r => r.SessionId, StringComparer.OrdinalIgnoreCase);
+
+        if (running)
+            return AdoptRunning(store, adoption, live.Values.Where(r => !known.Contains(r.SessionId)).ToList());
 
         TranscriptInfo? transcript;
         if (sessionId is null)
         {
-            transcript = PickTranscript(known);
+            transcript = PickTranscript(known, live);
             if (transcript is null)
                 return 1;
         }
@@ -240,56 +254,107 @@ internal static class SessionCommands
             transcript = Transcripts.Read(matches[0]);
         }
 
-        if (sessions.FirstOrDefault(s => s.SessionId.Equals(transcript.SessionId, StringComparison.OrdinalIgnoreCase)) is { } existing)
+        var existing = store.ReadAll().FirstOrDefault(s => s.SessionId.Equals(transcript.SessionId, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null)
             return Fail($"That session is already in cb as '{existing.Name}'. Use cb resume \"{existing.Name}\".");
-        if (transcript.Cwd is null)
+
+        var process = live.GetValueOrDefault(transcript.SessionId);
+        var cwd = transcript.Cwd ?? process?.Cwd;
+        if (cwd is null)
             return Fail("The transcript doesn't say which folder the session ran in.");
-        if (!Directory.Exists(transcript.Cwd))
-            return Fail($"The session's folder no longer exists: {transcript.Cwd}");
+        if (!Directory.Exists(cwd))
+            return Fail($"The session's folder no longer exists: {cwd}");
 
-        work ??= config.DefaultWork;
-        var workType = work is null ? null : config.FindWork(work);
-        if (work is not null && workType is null)
-            return Fail($"Unknown work type '{work}'. Configured: {string.Join(", ", config.Work.Keys)}.");
-
-        var wanted = NameClash.CleanName(name ?? Shorten(transcript.Title) ?? config.DefaultName.Replace("{folder}", Path.GetFileName(transcript.Cwd)));
-        if (wanted.Length == 0)
-            return Fail("The name can't be empty.");
-
-        var record = store.Update(file =>
-        {
-            if (file.Sessions.Any(s => s.SessionId.Equals(transcript.SessionId, StringComparison.OrdinalIgnoreCase)))
-                return null;
-
-            var free = FindByName(file.Sessions, wanted) is null
-                ? wanted
-                : NameClash.NextFreeName(wanted, config.NameClash.RenamePattern, file.Sessions.Select(s => s.Name));
-            var adopted = new SessionRecord
-            {
-                Name = free,
-                Cwd = transcript.Cwd,
-                SessionId = transcript.SessionId,
-                TranscriptPath = transcript.Path,
-                Work = workType is null ? null : work,
-                Colour = (colour ?? workType?.Colour) is { } c ? Colours.Validate(c) : null,
-                Scheme = workType?.Scheme,
-                Status = SessionStatus.Exited,
-                LastActiveAt = transcript.LastWritten,
-                ClosedAt = transcript.LastWritten,
-            };
-            file.Sessions.Add(adopted);
-            return adopted;
-        });
-
+        var record = adoption.Add(store, transcript.SessionId, cwd, transcript, name ?? process?.Name, process);
         if (record is null)
             return Fail("That session was just added to cb elsewhere.");
 
+        if (process is not null)
+        {
+            Console.WriteLine($"Added '{record.Name}' ({record.Cwd}). It's open in another window, so it's been left there; " +
+                              "cb resume opens it in a cb tab once you've closed it.");
+            return 0;
+        }
+
         Console.WriteLine($"Added '{record.Name}' ({record.Cwd}).");
-        return noOpen ? 0 : Launch(store, config, record, here);
+        return noOpen ? 0 : Launch(store, adoption.Config, record, here);
+    }
+
+    private static int AdoptRunning(SessionStore store, Adoption adoption, List<RunningSession> running)
+    {
+        if (running.Count == 0)
+        {
+            Console.WriteLine("No running Claude sessions that cb doesn't already have.");
+            return 0;
+        }
+
+        var added = 0;
+        foreach (var process in running)
+        {
+            var transcript = Transcripts.Find(process.SessionId) is { } path ? Transcripts.Read(path) : null;
+            var cwd = transcript?.Cwd ?? process.Cwd;
+            if (cwd is null || !Directory.Exists(cwd))
+            {
+                Console.WriteLine($"  skipped {process.SessionId[..8]}: can't tell which folder it's in");
+                continue;
+            }
+
+            if (adoption.Add(store, process.SessionId, cwd, transcript, process.Name, process) is { } record)
+            {
+                Console.WriteLine($"  {record.Name}  ({record.Cwd})");
+                added++;
+            }
+        }
+
+        Console.WriteLine($"Added {added} running session{(added == 1 ? "" : "s")}. They stay where they are; " +
+                          "cb resume opens one in a cb tab once you've closed it.");
+        return 0;
+    }
+
+    /// <summary>The choices that apply to every session being adopted.</summary>
+    private sealed record Adoption(Config Config, string? Work, WorkType? WorkType, string? Colour)
+    {
+        /// <summary>Adds the record (with a free name), or returns null if cb already has the session.</summary>
+        public SessionRecord? Add(SessionStore store, string sessionId, string cwd, TranscriptInfo? transcript, string? name, RunningSession? process)
+        {
+            var wanted = NameClash.CleanName(name ?? Shorten(transcript?.Title) ?? Config.DefaultName.Replace("{folder}", Path.GetFileName(cwd)));
+            if (wanted.Length == 0)
+                wanted = "Claude";
+            var lastActive = transcript is null ? DateTimeOffset.Now : new DateTimeOffset(transcript.LastWritten);
+
+            return store.Update(file =>
+            {
+                if (file.Sessions.Any(s => s.SessionId.Equals(sessionId, StringComparison.OrdinalIgnoreCase)))
+                    return null;
+
+                var free = FindByName(file.Sessions, wanted) is null
+                    ? wanted
+                    : NameClash.NextFreeName(wanted, Config.NameClash.RenamePattern, file.Sessions.Select(s => s.Name));
+                // A running one keeps its process, so it shows as running and can't be opened twice.
+                // cb has no hooks in it and won't see how it ends, so it isn't marked open either.
+                var adopted = new SessionRecord
+                {
+                    Name = free,
+                    Cwd = cwd,
+                    SessionId = sessionId,
+                    TranscriptPath = transcript?.Path,
+                    Work = Work,
+                    Colour = (Colour ?? WorkType?.Colour) is { } c ? Colours.Validate(c) : null,
+                    Scheme = WorkType?.Scheme,
+                    Status = SessionStatus.Exited,
+                    Pid = process?.Pid,
+                    ProcessStartedAt = process?.StartedAt,
+                    LastActiveAt = lastActive,
+                    ClosedAt = process is null ? lastActive : null,
+                };
+                file.Sessions.Add(adopted);
+                return adopted;
+            });
+        }
     }
 
     /// <summary>Offers this folder's most recent Claude sessions that cb doesn't know about.</summary>
-    private static TranscriptInfo? PickTranscript(HashSet<string> known)
+    private static TranscriptInfo? PickTranscript(HashSet<string> known, Dictionary<string, RunningSession> live)
     {
         var cwd = Environment.CurrentDirectory;
         var candidates = Transcripts.ForFolder(cwd)
@@ -311,7 +376,9 @@ internal static class SessionCommands
 
         Console.WriteLine($"Claude sessions in {cwd}:");
         var options = candidates
-            .Select((t, i) => ((char)('1' + i), $"{t.LastWritten:yyyy-MM-dd HH:mm}  {Shorten(t.Title) ?? "(untitled)"}  {t.SessionId[..8]}"))
+            .Select((t, i) => ((char)('1' + i),
+                $"{t.LastWritten:yyyy-MM-dd HH:mm}  {Shorten(t.Title) ?? "(untitled)"}  {t.SessionId[..8]}" +
+                (live.ContainsKey(t.SessionId) ? "  (running)" : "")))
             .Append(('C', "Cancel"))
             .ToArray();
         var key = Prompt.Choose(options);
