@@ -483,3 +483,6 @@ $RECYCLE.BIN/
 
 # Local planning notes
 PLAN.md
+
+# Local tool packs
+nupkg-local/
