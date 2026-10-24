@@ -22,6 +22,10 @@ internal static class ConfigSettings
             c => c.ClaudePath, (c, v) => c.ClaudePath = v,
             (_, v) => File.Exists(v) ? Path.GetFullPath(v) : throw new ConfigException($"File not found: {v}")),
 
+        new("claudeArgs", "Extra arguments for claude on every launch, e.g. --remote-control",
+            c => c.ClaudeArgs.Count == 0 ? null : Aliases.Join(c.ClaudeArgs), (c, v) => c.ClaudeArgs = v is null ? [] : Aliases.Split(v),
+            (_, v) => Aliases.Join(Aliases.Split(v))),
+
         new("defaultName", "Name for cb on its own; {folder} is the folder's name",
             c => c.DefaultName, (c, v) => c.DefaultName = v ?? new Config().DefaultName,
             (_, v) => v.Trim().Length > 0 ? v.Trim() : throw new ConfigException("The name can't be empty.")),

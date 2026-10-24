@@ -35,6 +35,29 @@ public class LaunchArgumentTests
     }
 
     [Fact]
+    public void ClaudeArguments_ConfigArgsComeBeforeTheSessionsOwn()
+    {
+        Assert.Equal(
+            ["--session-id", "8c2e0000-0000-0000-0000-000000000000", "--name", "Login hotfix",
+             "--settings", "hooks.json", "--remote-control", "--model", "opus"],
+            ClaudeLauncher.BuildArguments(Record(), transcriptExists: false, "hooks.json", ["--remote-control"]));
+    }
+
+    [Fact]
+    public void ConfigArgs_GlobalThenWorkType()
+    {
+        var config = new Config { ClaudeArgs = ["--remote-control"] };
+        config.SetWork("research", null, null, "--permission-mode plan");
+        var record = Record();
+
+        record.Work = "Research";
+        Assert.Equal(["--remote-control", "--permission-mode", "plan"], ClaudeLauncher.ConfigArgs(config, record));
+
+        record.Work = "gone";
+        Assert.Equal(["--remote-control"], ClaudeLauncher.ConfigArgs(config, record));
+    }
+
+    [Fact]
     public void TabArguments_IncludeTitleFolderAndRunCommand()
     {
         Assert.Equal(

@@ -75,15 +75,17 @@ internal static class ConfigCommands
         return 0;
     }
 
-    public static int AddWork(string name, string? colour, string? scheme)
+    public static int AddWork(string name, string? colour, string? scheme, string? claudeArgs)
     {
         var config = Config.Load();
-        var added = config.SetWork(name, colour, scheme);
+        var added = config.SetWork(name, colour, scheme, claudeArgs);
         config.Save();
 
         Console.WriteLine(added ? $"Added work type '{name}'." : $"Updated work type '{name}'.");
-        if (!added)
+        if (!added && (colour is not null || scheme is not null))
             Console.WriteLine("Existing sessions keep their colours; change one with cb set <session> --work " + name + ".");
+        if (!added && claudeArgs is not null)
+            Console.WriteLine("Its sessions get the new Claude arguments the next time they're opened.");
         return 0;
     }
 
@@ -145,7 +147,8 @@ internal static class ConfigCommands
 
             var isDefault = string.Equals(name, config.DefaultWork, StringComparison.OrdinalIgnoreCase) ? "  (default)" : "";
             var scheme = work.Scheme is null ? "" : $"  scheme: {work.Scheme}";
-            Console.WriteLine($"  {label}  {work.Colour ?? "no colour",-10}{scheme}{isDefault}");
+            var args = work.ClaudeArgs is { Count: > 0 } a ? $"  claude: {Aliases.Join(a)}" : "";
+            Console.WriteLine($"  {label}  {work.Colour ?? "no colour",-10}{scheme}{args}{isDefault}");
         }
     }
 }

@@ -23,7 +23,7 @@ internal sealed class ClaudeLauncher(SessionStore store, Config config)
         var cbCommand = AppCopy.Command();
         using var pin = AppCopy.Pin(cbCommand);
         var transcriptExists = Transcripts.Find(record.SessionId, record.TranscriptPath) is not null;
-        foreach (var arg in BuildArguments(record, transcriptExists, HooksFile.Write(cbCommand)))
+        foreach (var arg in BuildArguments(record, transcriptExists, HooksFile.Write(cbCommand), ConfigArgs(config, record)))
             info.ArgumentList.Add(arg);
         info.Environment["CLAUDEBOX_ID"] = record.Id;
 
@@ -59,13 +59,22 @@ internal sealed class ClaudeLauncher(SessionStore store, Config config)
         return process.ExitCode;
     }
 
-    /// <summary>A transcript only exists once the session has had a message, so first launches use --session-id.</summary>
-    internal static List<string> BuildArguments(SessionRecord record, bool transcriptExists, string settingsPath)
+    /// <summary>The config's claudeArgs, then the session's work type's, so the more specific comes later.</summary>
+    internal static List<string> ConfigArgs(Config config, SessionRecord record) =>
+        [.. config.ClaudeArgs, .. (record.Work is { } work ? config.FindWork(work)?.ClaudeArgs : null) ?? []];
+
+    /// <summary>
+    /// A transcript only exists once the session has had a message, so first launches use --session-id.
+    /// The config's arguments (see ConfigArgs) go on every launch, before the session's own (from cb new -- ...).
+    /// </summary>
+    internal static List<string> BuildArguments(SessionRecord record, bool transcriptExists, string settingsPath,
+        IReadOnlyList<string>? configArgs = null)
     {
         List<string> args = transcriptExists
             ? ["--resume", record.SessionId]
             : ["--session-id", record.SessionId];
         args.AddRange(["--name", record.Name, "--settings", settingsPath]);
+        args.AddRange(configArgs ?? []);
         args.AddRange(record.ClaudeArgs);
         return args;
     }

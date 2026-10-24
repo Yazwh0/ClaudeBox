@@ -18,6 +18,10 @@ internal sealed class Config
     };
 
     public string? ClaudePath { get; set; }
+
+    /// <summary>Passed to claude every time cb starts or resumes a session, e.g. ["--remote-control"].</summary>
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Replace)]
+    public List<string> ClaudeArgs { get; set; } = [];
     public string? DefaultWork { get; set; } = "general";
 
     /// <summary>Name for `cb` on its own; {folder} is the current folder's name. Clashes get a number.</summary>
@@ -76,7 +80,7 @@ internal sealed class Config
     public WorkType? FindWork(string name) => Work.GetValueOrDefault(name);
 
     /// <summary>Adds a work type, or changes the one with that name. Returns true if it was added.</summary>
-    public bool SetWork(string name, string? colour, string? scheme)
+    public bool SetWork(string name, string? colour, string? scheme, string? claudeArgs = null)
     {
         if (string.IsNullOrWhiteSpace(name))
             throw new ConfigException("The work type needs a name.");
@@ -87,6 +91,8 @@ internal sealed class Config
             workType.Colour = IsNone(colour) ? null : Terminal.Colours.Validate(colour);
         if (scheme is not null)
             workType.Scheme = IsNone(scheme) ? null : scheme;
+        if (claudeArgs is not null)
+            workType.ClaudeArgs = IsNone(claudeArgs) || Claudebox.Aliases.Split(claudeArgs) is not { Count: > 0 } args ? null : args;
         return added;
     }
 
@@ -128,4 +134,8 @@ internal sealed class WorkType
 {
     public string? Colour { get; set; }
     public string? Scheme { get; set; }
+
+    /// <summary>Passed to claude after the config's claudeArgs, read at each launch (unlike colours, which a session keeps).</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? ClaudeArgs { get; set; }
 }

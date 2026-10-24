@@ -52,6 +52,10 @@ internal static class Aliases
         return words;
     }
 
+    /// <summary>Arguments as you'd type them, quoting any with spaces, so they Split back the same way.</summary>
+    public static string Join(IEnumerable<string> args) =>
+        string.Join(' ', args.Select(a => a.Length == 0 || a.Any(char.IsWhiteSpace) ? $"\"{a}\"" : a));
+
     /// <summary>Checks a new alias, returning its name and command tidied up.</summary>
     public static (string Name, string Command) Check(string name, string command, ISet<string> commands)
     {

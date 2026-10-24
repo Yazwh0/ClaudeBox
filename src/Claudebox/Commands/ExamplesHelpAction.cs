@@ -32,7 +32,11 @@ internal sealed class ExamplesHelpAction(SynchronousCommandLineAction standardHe
           cb startup enable                   run cb restore when you log in
           cb config                           show your settings
           cb config set defaultName Claude    change a setting (cb config unset to go back)
+          cb config set claudeArgs --remote-control
+                                              pass arguments to claude in every session
           cb work add bug --colour orange     add a work type, or change one's colour
+          cb work add research --claude-args "--permission-mode plan"
+                                              pass arguments to claude in that type's sessions
           cb alias add c "rm --exited -y"     make cb c a shortcut for that command
 
         Run cb <command> -? for all of a command's options.

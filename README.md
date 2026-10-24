@@ -135,16 +135,35 @@ Shows your settings and where the file is. Values are checked before they're sav
 | `cb config unset <setting>` | Put a setting back to its default |
 | `cb config edit` | Open `config.json` in `$VISUAL`/`$EDITOR`, or whatever opens `.json` files |
 
+To pass something to Claude in every session, such as turning on Remote Control, set `claudeArgs`:
+
+```
+cb config set claudeArgs --remote-control
+cb config set claudeArgs "--remote-control --model opus"
+cb config unset claudeArgs
+```
+
+Setting it replaces what was there, so give every argument you want each time. Put quotes round the whole value when there's more than one argument, and round any single argument that has spaces in it (`"--append-system-prompt \"be brief\""`). These arguments are used on every launch, including resumes and restores, and go before any you gave a session with `cb new <name> -- <claude args>`.
+
 ### `cb work`
 
-Lists the work types, their colours, and which is the default.
+Lists the work types, their colours, Claude arguments, and which is the default.
 
 | Command | Description |
 | --- | --- |
-| `cb work add <type> [--colour <c>] [--scheme <s>]` | Add a work type, or change one; `none` clears a colour or scheme |
+| `cb work add <type> [--colour <c>] [--scheme <s>] [--claude-args "<args>"]` | Add a work type, or change one; `none` clears a colour, scheme or Claude arguments |
 | `cb work rm <type>` | Remove a work type (not the default one) |
 
-Sessions keep the colour they were given, so changing a work type doesn't recolour existing sessions; use `cb set <session> --work <type>` for that.
+Sessions keep the colour they were given, so changing a work type doesn't recolour existing sessions; use `cb set <session> --work <type>` for that. Claude arguments are different: they're read each time a session opens, so a change applies to the type's existing sessions the next time they're opened.
+
+A work type's Claude arguments go after the global `claudeArgs` (see [`cb config`](#cb-config)) and before a session's own, so the more specific one comes last. Setting them replaces what the type had. For example:
+
+```
+cb work add research --claude-args "--permission-mode plan"     research sessions plan rather than edit
+cb work add hotfix --claude-args "--model opus"                 hotfixes use Opus
+cb work add query --colour teal --claude-args "--model haiku"   a new type for quick questions
+cb work add hotfix --claude-args none                           back to no extra arguments
+```
 
 ### `cb alias`
 
@@ -171,11 +190,12 @@ An alias is one word and can't be the name of a `cb` command. Its command is wha
 
 ## Config
 
-`%APPDATA%\claudebox\config.json` is created on first run. Change it with `cb config` and `cb work`, or edit it by hand (`cb config` rewrites the file, so comments you add are lost). Command-line options override it for a single command.
+`%APPDATA%\claudebox\config.json` is created on first run. Change it from the command line with `cb config`, `cb work` and `cb alias`, or edit it by hand (`cb config` rewrites the file, so comments you add are lost). Command-line options override it for a single command.
 
 ```json
 {
   "claudePath": null,
+  "claudeArgs": [],
   "defaultWork": "general",
   "defaultName": "Claude",
   "nameClash": { "action": "ask", "nonInteractive": "fail", "renamePattern": "{name} {n}" },
@@ -192,12 +212,13 @@ An alias is one word and can't be the name of a `cb` command. Its command is wha
 | Setting | |
 | --- | --- |
 | `claudePath` | Full path to `claude`, if it isn't on your PATH |
+| `claudeArgs` | Extra arguments for `claude` on every launch, e.g. `--remote-control` (see [`cb config`](#cb-config)) |
 | `defaultName` | Name for `cb` on its own; `{folder}` is replaced with the current folder's name |
 | `defaultWork` | Work type when `--work` isn't given |
 | `nameClash.action` | What `cb new` does when the name is taken: `ask`, `resume`, `replace`, `rename` or `fail` |
 | `nameClash.nonInteractive` | The same, when there's no one to ask (e.g. in a script) |
 | `nameClash.renamePattern` | How `rename` makes a free name; needs `{n}` |
-| `work` | Work types: a tab `colour` and optionally a Windows Terminal colour `scheme` for the whole pane |
+| `work` | Work types: a tab `colour`, and optionally a Windows Terminal colour `scheme` for the whole pane and `claudeArgs` for their sessions |
 | `aliases` | Shortcuts for `cb` commands (see [`cb alias`](#cb-alias)) |
 
 Colours can be a name or hex (`#RRGGBB` or `#RGB`), and names are saved as names rather than converted to hex. `red`, `orange`, `amber`, `yellow`, `green`, `teal`, `blue`, `purple`, `pink` and `grey` are picked to look good as tab colours; any other standard web colour name works too (`crimson`, `navy`, `darkorange`, ...). Spaces and case don't matter, so `Dark Orange` is `darkorange`.

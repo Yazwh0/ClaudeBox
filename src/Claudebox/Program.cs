@@ -137,8 +137,13 @@ configCommand.SetAction(_ => ConfigCommands.Show());
 var workName = new Argument<string>("type") { Description = "Work type name, e.g. hotfix" };
 var workColour = new Option<string?>("--colour", "--color") { Description = "Tab colour (#RRGGBB or a name), or none" };
 var workScheme = new Option<string?>("--scheme") { Description = "Windows Terminal colour scheme for the whole pane, or none" };
-var workAddCommand = new Command("add", "Add a work type, or change one") { workName, workColour, workScheme };
-workAddCommand.SetAction(r => ConfigCommands.AddWork(r.GetValue(workName)!, r.GetValue(workColour), r.GetValue(workScheme)));
+var workClaudeArgs = new Option<string?>("--claude-args")
+{
+    Description = "Extra arguments for claude in this type's sessions, in quotes, e.g. \"--permission-mode plan\", or none",
+};
+var workAddCommand = new Command("add", "Add a work type, or change one") { workName, workColour, workScheme, workClaudeArgs };
+workAddCommand.SetAction(r => ConfigCommands.AddWork(
+    r.GetValue(workName)!, r.GetValue(workColour), r.GetValue(workScheme), r.GetValue(workClaudeArgs)));
 var workRmCommand = new Command("rm", "Remove a work type") { workName };
 workRmCommand.SetAction(r => ConfigCommands.RemoveWork(r.GetValue(workName)!));
 var workLsCommand = new Command("ls", "List work types");

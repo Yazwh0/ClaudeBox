@@ -10,6 +10,7 @@ public sealed class ConfigSettingsTests : IDisposable
     [InlineData("nameClash.action", "Rename", "rename")]
     [InlineData("nameclash.nonInteractive", "resume", "resume")]
     [InlineData("nameClash.renamePattern", "{name}-{n}", "{name}-{n}")]
+    [InlineData("claudeArgs", "  --remote-control   --append-system-prompt \"be brief\" ", "--remote-control --append-system-prompt \"be brief\"")]
     public void Set_StoresCheckedValue(string key, string value, string stored)
     {
         var config = new Config();
@@ -24,6 +25,7 @@ public sealed class ConfigSettingsTests : IDisposable
     [InlineData("nameClash.nonInteractive", "ask")]
     [InlineData("nameClash.renamePattern", "{name} copy")]
     [InlineData("claudePath", @"C:\definitely\not\here\claude.exe")]
+    [InlineData("claudeArgs", "--model \"opus")]
     [InlineData("colour", "red")]
     [InlineData("work.hotfix", "red")]
     public void Set_RejectsBadValuesAndKeys(string key, string value)
@@ -57,6 +59,20 @@ public sealed class ConfigSettingsTests : IDisposable
         config.SetWork("bug", "none", "none");
         Assert.Null(config.FindWork("bug")?.Colour);
         Assert.Null(config.FindWork("bug")?.Scheme);
+    }
+
+    [Fact]
+    public void SetWork_ClaudeArgs_SetKeptAndCleared()
+    {
+        var config = new Config();
+        config.SetWork("research", null, null, "--permission-mode plan --append-system-prompt \"be brief\"");
+        Assert.Equal(["--permission-mode", "plan", "--append-system-prompt", "be brief"], config.FindWork("research")?.ClaudeArgs);
+
+        config.SetWork("research", "teal", null);
+        Assert.Equal(4, config.FindWork("research")?.ClaudeArgs?.Count);
+
+        config.SetWork("research", null, null, "none");
+        Assert.Null(config.FindWork("research")?.ClaudeArgs);
     }
 
     [Fact]
