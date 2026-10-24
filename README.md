@@ -10,6 +10,8 @@ dotnet tool install -g BitMagic.ClaudeBox.Cli
 
 Needs the .NET 10 runtime, [Claude Code](https://code.claude.com) and Windows Terminal.
 
+To update, run `dotnet tool update -g BitMagic.ClaudeBox.Cli` (see [Updating](#updating)).
+
 ## Quick start
 
 ```
