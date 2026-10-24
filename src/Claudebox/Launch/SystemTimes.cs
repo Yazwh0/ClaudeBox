@@ -5,6 +5,9 @@ internal static class SystemTimes
     /// <summary>When Windows last shut down, as recorded in HKLM\...\Control\Windows\ShutdownTime (a FILETIME).</summary>
     public static DateTimeOffset? LastShutdown()
     {
+        if (!OperatingSystem.IsWindows())
+            return null;
+
         try
         {
             using var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Control\Windows");

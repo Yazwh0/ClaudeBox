@@ -2,12 +2,32 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AssemblyName>cb</AssemblyName>
     <RootNamespace>Claudebox</RootNamespace>
   </PropertyGroup>
+
+  <PropertyGroup Label="Package">
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>cb</ToolCommandName>
+    <PackageId>BitMagic.ClaudeBox.Cli</PackageId>
+    <Version>0.1.0-dev</Version>
+    <Authors>Yazwh0</Authors>
+    <Description>Named, colour-coded Claude Code sessions in Windows Terminal tabs that come back after a reboot.</Description>
+    <PackageTags>claude;claude-code;windows-terminal;cli;tool</PackageTags>
+    <PackageProjectUrl>https://github.com/Yazwh0/ClaudeBox</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Yazwh0/ClaudeBox.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\LICENSE" Pack="true" PackagePath="\" />
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="System.CommandLine" Version="2.0.13" />
