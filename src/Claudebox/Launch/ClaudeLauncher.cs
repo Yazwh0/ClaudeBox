@@ -20,8 +20,10 @@ internal sealed class ClaudeLauncher(SessionStore store, Config config)
             UseShellExecute = false,
             WorkingDirectory = record.Cwd,
         };
+        var cbCommand = AppCopy.Command();
+        using var pin = AppCopy.Pin(cbCommand);
         var transcriptExists = Transcripts.Find(record.SessionId, record.TranscriptPath) is not null;
-        foreach (var arg in BuildArguments(record, transcriptExists, HooksFile.Write(Environment.ProcessPath!)))
+        foreach (var arg in BuildArguments(record, transcriptExists, HooksFile.Write(cbCommand)))
             info.ArgumentList.Add(arg);
         info.Environment["CLAUDEBOX_ID"] = record.Id;
 

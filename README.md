@@ -48,6 +48,12 @@ Sessions can be given by name, name prefix or their number in `cb ls`. Add `--he
 
 `cb` starts `claude` with a session ID it chooses and passes some hooks with `--settings` (your own Claude settings aren't touched). The hooks keep the session ID up to date after `/clear` and track whether Claude is busy or waiting. Closing a tab or exiting Claude marks the session closed; a shutdown or crash leaves it open, so `cb restore` knows what to bring back.
 
+## Updating
+
+Tabs run a private copy of `cb` (in `%APPDATA%\claudebox\bin`), so you can update or reinstall while sessions are open; each copy is removed once nothing is using it. A session started with `--here` runs from the installed tool itself, so close those before updating.
+
+From source, `install-local-build.bat` installs a build numbered `<next version>-local.<timestamp>`, and `install-from-nuget.bat` switches back to the latest release. Both uninstall first and install an exact version from a single source, so it doesn't matter which one is numbered higher.
+
 ## Licence
 
 GPL-3.0. See [LICENSE](LICENSE).

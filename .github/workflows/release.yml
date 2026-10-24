@@ -79,6 +79,8 @@ jobs:
         with:
           user: ${{ secrets.NUGET_USER }}
 
+      # bash expands the glob; dotnet nuget push doesn't on Windows.
       - name: Push to NuGet
         if: steps.nuget.outputs.present == 'true'
-        run: dotnet nuget push "artifacts/*.nupkg" --api-key ${{ steps.nuget-login.outputs.NUGET_API_KEY }} -s https://api.nuget.org/v3/index.json --skip-duplicate
+        shell: bash
+        run: dotnet nuget push artifacts/*.nupkg --api-key ${{ steps.nuget-login.outputs.NUGET_API_KEY }} -s https://api.nuget.org/v3/index.json --skip-duplicate

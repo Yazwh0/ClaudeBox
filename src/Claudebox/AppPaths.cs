@@ -12,9 +12,10 @@ internal static class AppPaths
 
     public static string Config => Path.Combine(Root, "config.json");
 
-    public static string Hooks => Path.Combine(Root, "hooks.json");
-
     public static string Log => Path.Combine(Root, "cb.log");
+
+    /// <summary>Private copies of cb that tabs and hooks run from (see AppCopy).</summary>
+    public static string Bin => Path.Combine(Root, "bin");
 
     public static string ClaudeProjects =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude", "projects");

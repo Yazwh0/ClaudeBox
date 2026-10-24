@@ -40,7 +40,14 @@ public class LaunchArgumentTests
         Assert.Equal(
             ["new-tab", "--title", "Login hotfix", "--suppressApplicationTitle",
              "-d", @"C:\src\app", @"C:\tools\cb.exe", "run", "abc123def456"],
-            WindowsTerminal.BuildTabArguments(Record(), @"C:\tools\cb.exe"));
+            WindowsTerminal.BuildTabArguments(Record(), [@"C:\tools\cb.exe"]));
+    }
+
+    [Fact]
+    public void TabArguments_DotnetCommand_RunsTheDll()
+    {
+        var args = WindowsTerminal.BuildTabArguments(Record(), ["dotnet", @"C:\copy\cb.dll"]);
+        Assert.Equal(["dotnet", @"C:\copy\cb.dll", "run", "abc123def456"], args[^4..]);
     }
 
     [Fact]
@@ -50,7 +57,7 @@ public class LaunchArgumentTests
         record.Colour = "#C62828";
         record.Scheme = "Red Alert";
 
-        var args = WindowsTerminal.BuildTabArguments(record, "cb.exe");
+        var args = WindowsTerminal.BuildTabArguments(record, ["cb.exe"]);
 
         Assert.Equal("a\\;b", args[args.IndexOf("--title") + 1]);
         Assert.Equal("#C62828", args[args.IndexOf("--tabColor") + 1]);
@@ -60,7 +67,7 @@ public class LaunchArgumentTests
     [Fact]
     public void Arguments_SeveralTabs_AreSeparatedBySemicolons()
     {
-        var args = WindowsTerminal.BuildArguments([Record("one"), Record("two")], "cb.exe", newWindow: false);
+        var args = WindowsTerminal.BuildArguments([Record("one"), Record("two")], ["cb.exe"], newWindow: false);
 
         Assert.Equal(["-w", "0", "new-tab"], args[..3]);
         Assert.Single(args, a => a == ";");
@@ -70,14 +77,14 @@ public class LaunchArgumentTests
     [Fact]
     public void Arguments_NewWindow_TargetsNewWindow()
     {
-        var args = WindowsTerminal.BuildArguments([Record()], "cb.exe", newWindow: true);
+        var args = WindowsTerminal.BuildArguments([Record()], ["cb.exe"], newWindow: true);
         Assert.Equal(["-w", "new"], args[..2]);
     }
 
     [Fact]
     public void HooksFile_CallsCbForEachEventWithForwardSlashes()
     {
-        using var doc = JsonDocument.Parse(HooksFile.Build(@"C:\tools\cb.exe"));
+        using var doc = JsonDocument.Parse(HooksFile.Build([@"C:\tools\cb.exe"]));
         var hooks = doc.RootElement.GetProperty("hooks");
 
         foreach (var name in HooksFile.Events)
@@ -85,5 +92,24 @@ public class LaunchArgumentTests
             var command = hooks.GetProperty(name)[0].GetProperty("hooks")[0].GetProperty("command").GetString();
             Assert.Equal($"\"C:/tools/cb.exe\" hook {name}", command);
         }
+    }
+
+    [Fact]
+    public void HooksFile_DotnetCommand_QuotesEachPart()
+    {
+        using var doc = JsonDocument.Parse(HooksFile.Build(["dotnet", @"C:\copy dir\cb.dll"]));
+        var command = doc.RootElement.GetProperty("hooks").GetProperty("Stop")[0]
+            .GetProperty("hooks")[0].GetProperty("command").GetString();
+        Assert.Equal("\"dotnet\" \"C:/copy dir/cb.dll\" hook Stop", command);
+    }
+
+    [Fact]
+    public void AppCopy_BuildKey_ChangesWithDllTimeAndIsPathSafe()
+    {
+        var time = new DateTime(2026, 10, 24, 12, 0, 0, DateTimeKind.Utc);
+        var key = AppCopy.BuildKey("0.1.1-local.1+abc123", time);
+
+        Assert.DoesNotContain('+', key);
+        Assert.NotEqual(key, AppCopy.BuildKey("0.1.1-local.1+abc123", time.AddSeconds(1)));
     }
 }
