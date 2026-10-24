@@ -23,7 +23,12 @@ cb set <session> --name <name> --work <type> --colour <colour> --scheme <scheme>
 cb rename <session> <new name>
 cb rm <session>                      forget a session (its transcript is kept)
 cb rm --exited                       forget every session that was exited or closed
+cb restore --all                     reopen every session that isn't running
+cb restore --work hotfix             ... just the ones of one work type
+cb rm --work hotfix                  forget every hotfix session that isn't running
 ```
+
+`rm --exited --work hotfix` narrows to exited hotfix sessions. Bulk `rm` lists what it will remove and asks first (`--yes` skips that). `restore --dry-run` shows what would open.
 
 Changes made with `cb set` to an open session's tab show the next time it's opened. `--colour none` and `--scheme none` clear them.
 

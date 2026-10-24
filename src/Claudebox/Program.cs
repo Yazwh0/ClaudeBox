@@ -47,13 +47,15 @@ lsCommand.SetAction(r => SessionCommands.List(r.GetValue(lsAll)));
 
 // restore
 var restoreAll = new Option<bool>("--all", "-a") { Description = "Reopen every session that isn't running, not just interrupted ones" };
+var restoreWork = new Option<string?>("--work", "-w") { Description = "Reopen every session of this work type that isn't running" };
 var restoreNewWindow = new Option<bool>("--new-window") { Description = "Open the tabs in a new window" };
 var restoreDryRun = new Option<bool>("--dry-run") { Description = "Show what would be restored without opening anything" };
 var restoreCommand = new Command("restore", "Reopen sessions that were running when Windows shut down")
 {
-    restoreAll, restoreNewWindow, restoreDryRun,
+    restoreAll, restoreWork, restoreNewWindow, restoreDryRun,
 };
-restoreCommand.SetAction(r => SessionCommands.Restore(r.GetValue(restoreAll), r.GetValue(restoreNewWindow), r.GetValue(restoreDryRun)));
+restoreCommand.SetAction(r => SessionCommands.Restore(
+    r.GetValue(restoreAll), r.GetValue(restoreWork), r.GetValue(restoreNewWindow), r.GetValue(restoreDryRun)));
 
 // set
 var setName = new Option<string?>("--name", "-n") { Description = "New name" };
@@ -76,10 +78,12 @@ var rmSession = new Argument<string?>("session")
     Arity = ArgumentArity.ZeroOrOne,
 };
 var rmExited = new Option<bool>("--exited") { Description = "Remove every session that was exited or closed (not interrupted ones)" };
-var rmYes = new Option<bool>("--yes", "-y") { Description = "Don't ask before removing with --exited" };
+var rmWork = new Option<string?>("--work", "-w") { Description = "Remove every session of this work type that isn't running" };
+var rmYes = new Option<bool>("--yes", "-y") { Description = "Don't ask before removing several sessions" };
 var rmForget = new Option<bool>("--forget-transcript") { Description = "Also delete Claude's transcript of the conversation" };
-var rmCommand = new Command("rm", "Remove a session from cb") { rmSession, rmExited, rmYes, rmForget };
-rmCommand.SetAction(r => SessionCommands.Remove(r.GetValue(rmSession), r.GetValue(rmExited), r.GetValue(rmYes), r.GetValue(rmForget)));
+var rmCommand = new Command("rm", "Remove a session from cb") { rmSession, rmExited, rmWork, rmYes, rmForget };
+rmCommand.SetAction(r => SessionCommands.Remove(
+    r.GetValue(rmSession), r.GetValue(rmExited), r.GetValue(rmWork), r.GetValue(rmYes), r.GetValue(rmForget)));
 
 // run (internal: what a new tab executes)
 var runId = new Argument<string>("id");

@@ -53,6 +53,33 @@ public class LifecycleTests
     }
 
     [Theory]
+    [InlineData(false, false, null, true)]   // exited, no filters
+    [InlineData(true, false, null, false)]   // running: never removed
+    [InlineData(false, false, "HOTFIX", true)]
+    [InlineData(false, false, "research", false)]
+    public void Removable_ByWork(bool alive, bool exitedOnly, string? work, bool expected)
+    {
+        var record = Record();
+        record.Work = "hotfix";
+        Assert.Equal(expected, SessionFilter.IsRemovable(record, alive, exitedOnly, work));
+    }
+
+    [Fact]
+    public void Removable_ExitedOnly_KeepsInterrupted()
+    {
+        var interrupted = Record(open: true);
+        Assert.True(SessionFilter.IsRemovable(interrupted, alive: false, exitedOnly: false, work: null));
+        Assert.False(SessionFilter.IsRemovable(interrupted, alive: false, exitedOnly: true, work: null));
+    }
+
+    [Fact]
+    public void MatchesWork_NoFilter_MatchesSessionsWithoutWork()
+    {
+        Assert.True(SessionFilter.MatchesWork(Record(), null));
+        Assert.False(SessionFilter.MatchesWork(Record(), "hotfix"));
+    }
+
+    [Theory]
     [InlineData("SessionStart", SessionStatus.Waiting)]
     [InlineData("UserPromptSubmit", SessionStatus.Busy)]
     [InlineData("Stop", SessionStatus.Waiting)]

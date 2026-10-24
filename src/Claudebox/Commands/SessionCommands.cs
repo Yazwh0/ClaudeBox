@@ -114,16 +114,21 @@ internal static class SessionCommands
         return new ClaudeLauncher(store, Config.Load()).Run(record);
     }
 
-    public static int Restore(bool all, bool newWindow, bool dryRun)
+    /// <summary>Reopens interrupted sessions; with all, or a work type, every session that isn't running (of that type).</summary>
+    public static int Restore(bool all, string? work, bool newWindow, bool dryRun)
     {
         var lastShutdown = SystemTimes.LastShutdown();
+        var everything = all || work is not null;
         var toRestore = SessionStore.Default.ReadAll()
-            .Where(s => RestorePlanner.IsRestorable(s, all, ProcessLiveness.IsAlive(s), lastShutdown))
+            .Where(s => SessionFilter.MatchesWork(s, work)
+                     && RestorePlanner.IsRestorable(s, everything, ProcessLiveness.IsAlive(s), lastShutdown))
             .ToList();
 
         if (toRestore.Count == 0)
         {
-            Console.WriteLine(all ? "Nothing to restore: every session is already running." : "Nothing to restore. Use --all to reopen closed sessions too.");
+            Console.WriteLine(work is not null ? $"Nothing to restore: no '{work}' sessions that aren't already running."
+                : all ? "Nothing to restore: every session is already running."
+                : "Nothing to restore. Use --all to reopen closed sessions too.");
             return 0;
         }
 
@@ -198,27 +203,31 @@ internal static class SessionCommands
         return 0;
     }
 
-    /// <summary>Removes one session, or with exited: every session that was deliberately ended (not interrupted ones).</summary>
-    public static int Remove(string? query, bool exited, bool yes, bool forgetTranscript)
+    /// <summary>
+    /// Removes one session, or in bulk: with exited, every session that was deliberately ended;
+    /// with a work type, every session of that type that isn't running. Both together narrow it.
+    /// </summary>
+    public static int Remove(string? query, bool exited, string? work, bool yes, bool forgetTranscript)
     {
-        if (query is null == !exited)
-            return Fail("Give either a session to remove or --exited.");
+        var bulk = exited || work is not null;
+        if (query is null == !bulk)
+            return Fail("Give either a session to remove, or --exited and/or --work.");
 
         var store = SessionStore.Default;
         var sessions = store.ReadAll();
         List<SessionRecord> targets;
 
-        if (exited)
+        if (bulk)
         {
-            targets = sessions.Where(s => !s.Open && !ProcessLiveness.IsAlive(s)).ToList();
+            targets = sessions.Where(s => SessionFilter.IsRemovable(s, ProcessLiveness.IsAlive(s), exited, work)).ToList();
             if (targets.Count == 0)
             {
-                Console.WriteLine("No exited sessions.");
+                Console.WriteLine(work is null ? "No exited sessions." : $"No '{work}' sessions to remove.");
                 return 0;
             }
 
             foreach (var s in targets)
-                Console.WriteLine($"  {s.Name}  ({s.Status}, last active {s.LastActiveAt:yyyy-MM-dd HH:mm})");
+                Console.WriteLine($"  {s.Name}  ({ProcessLiveness.EffectiveStatus(s)}, last active {s.LastActiveAt:yyyy-MM-dd HH:mm})");
 
             if (!yes)
             {
