@@ -65,6 +65,14 @@ public class LaunchArgumentTests
     }
 
     [Fact]
+    public void Arguments_WithProfile_PassItToEachTab()
+    {
+        var args = WindowsTerminal.BuildArguments([Record("one"), Record("two")], ["cb.exe"], newWindow: false, "{abc}");
+        Assert.Equal(2, args.Count(a => a == "--profile"));
+        Assert.Equal("{abc}", args[args.IndexOf("--profile") + 1]);
+    }
+
+    [Fact]
     public void Arguments_SeveralTabs_AreSeparatedBySemicolons()
     {
         var args = WindowsTerminal.BuildArguments([Record("one"), Record("two")], ["cb.exe"], newWindow: false);
