@@ -8,20 +8,32 @@ internal static class WindowsTerminal
     /// <summary>Windows Terminal sets WT_SESSION in every shell it hosts.</summary>
     public static bool IsHosting => !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WT_SESSION"));
 
-    /// <summary>Opens a tab in the current window that runs `cb run &lt;id&gt;` for the session.</summary>
-    public static void OpenTab(SessionRecord record)
+    /// <summary>Opens one tab per session, each running `cb run &lt;id&gt;`, in a single wt call.</summary>
+    public static void OpenTabs(IReadOnlyList<SessionRecord> records, bool newWindow = false)
     {
         var info = new ProcessStartInfo("wt.exe") { UseShellExecute = false };
-        foreach (var arg in BuildNewTabArguments(record, Environment.ProcessPath!))
+        foreach (var arg in BuildArguments(records, Environment.ProcessPath!, newWindow))
             info.ArgumentList.Add(arg);
 
         using var process = Process.Start(info)
             ?? throw new InvalidOperationException("Failed to start Windows Terminal (wt.exe).");
     }
 
-    internal static List<string> BuildNewTabArguments(SessionRecord record, string cbPath)
+    internal static List<string> BuildArguments(IReadOnlyList<SessionRecord> records, string cbPath, bool newWindow)
     {
-        List<string> args = ["-w", "0", "new-tab", "--title", Escape(record.Name), "--suppressApplicationTitle"];
+        List<string> args = ["-w", newWindow ? "new" : "0"];
+        for (var i = 0; i < records.Count; i++)
+        {
+            if (i > 0)
+                args.Add(";");
+            args.AddRange(BuildTabArguments(records[i], cbPath));
+        }
+        return args;
+    }
+
+    internal static List<string> BuildTabArguments(SessionRecord record, string cbPath)
+    {
+        List<string> args = ["new-tab", "--title", Escape(record.Name), "--suppressApplicationTitle"];
         if (record.Colour is { } colour)
             args.AddRange(["--tabColor", colour]);
         if (record.Scheme is { } scheme)

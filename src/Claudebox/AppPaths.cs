@@ -10,6 +10,12 @@ internal static class AppPaths
 
     public static string Sessions => Path.Combine(Root, "sessions.json");
 
+    public static string Config => Path.Combine(Root, "config.json");
+
+    public static string Hooks => Path.Combine(Root, "hooks.json");
+
+    public static string Log => Path.Combine(Root, "cb.log");
+
     public static string ClaudeProjects =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude", "projects");
 }

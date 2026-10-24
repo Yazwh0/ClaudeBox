@@ -29,6 +29,9 @@ internal static class SessionStatus
 {
     public const string New = "new";
     public const string Running = "running";
+    public const string Waiting = "waiting";
+    public const string Busy = "busy";
+    public const string Attention = "attention";
     public const string Exited = "exited";
     public const string Closed = "closed";
     public const string Interrupted = "interrupted";
