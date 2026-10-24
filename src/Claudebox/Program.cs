@@ -1,4 +1,5 @@
 ﻿using System.CommandLine;
+using System.Reflection;
 using Claudebox;
 using Claudebox.Commands;
 using Claudebox.Registry;
@@ -122,7 +123,11 @@ var hookCommand = new Command("hook", "Internal: handle a Claude Code hook") { h
 hookCommand.Hidden = true;
 hookCommand.SetAction(r => HookCommand.Handle(r.GetValue(hookEvent)!));
 
-var root = new RootCommand("BitMagic ClaudeBox: named, restorable Claude Code sessions. On its own, cb starts a session in this folder.")
+// The informational version ends in +<commit hash>, which is noise in the help.
+var version = typeof(Program).Assembly
+    .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0];
+
+var root = new RootCommand($"BitMagic ClaudeBox {version}: named, restorable Claude Code sessions. On its own, cb starts a session in this folder.")
 {
     hereOption,
     newCommand, resumeCommand, lsCommand, restoreCommand, setCommand, renameCommand, rmCommand,
