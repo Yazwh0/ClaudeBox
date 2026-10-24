@@ -122,7 +122,7 @@ var hookCommand = new Command("hook", "Internal: handle a Claude Code hook") { h
 hookCommand.Hidden = true;
 hookCommand.SetAction(r => HookCommand.Handle(r.GetValue(hookEvent)!));
 
-var root = new RootCommand("claudebox: named, restorable Claude Code sessions. On its own, cb starts a session in this folder.")
+var root = new RootCommand("BitMagic ClaudeBox: named, restorable Claude Code sessions. On its own, cb starts a session in this folder.")
 {
     hereOption,
     newCommand, resumeCommand, lsCommand, restoreCommand, setCommand, renameCommand, rmCommand,
