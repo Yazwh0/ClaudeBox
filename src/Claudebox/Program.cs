@@ -104,6 +104,9 @@ var root = new RootCommand("claudebox: named, restorable Claude Code sessions. O
 };
 root.SetAction(r => SessionCommands.Quick(r.GetValue(hereOption)));
 
+var helpOption = root.Options.OfType<System.CommandLine.Help.HelpOption>().Single();
+helpOption.Action = new ExamplesHelpAction((System.CommandLine.Invocation.SynchronousCommandLineAction)helpOption.Action!);
+
 try
 {
     return root.Parse(args).Invoke(new InvocationConfiguration { EnableDefaultExceptionHandler = false });
