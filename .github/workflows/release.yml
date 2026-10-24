@@ -1,38 +1,84 @@
 name: Release
 
-# Push a tag like v0.1.0 to build, publish to NuGet and create a GitHub release.
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release, e.g. 1.2.3 (a matching tag is created)'
+        required: true
 
 permissions:
   contents: write
+  id-token: write # GitHub OIDC token for NuGet trusted publishing
 
 jobs:
   release:
     runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v5
 
-      - uses: actions/setup-dotnet@v5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6.0.0
         with:
           dotnet-version: 10.0.x
 
-      - name: Version from tag
+      - name: Resolve version
+        id: ver
+        shell: pwsh
+        run: |
+          $v = '${{ github.event.inputs.version }}'
+          if (-not $v) { $v = '${{ github.ref_name }}' -replace '^v', '' }
+          if ($v -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$') { throw "Version '$v' isn't N.N.N or N.N.N-suffix" }
+
+          "version=$v"                        >> $env:GITHUB_OUTPUT
+          "tag=v$v"                           >> $env:GITHUB_OUTPUT
+          "prerelease=$($v.Contains('-'))".ToLower() >> $env:GITHUB_OUTPUT
+          Write-Host "Releasing $v"
+
+      - name: Build
+        run: dotnet build -c Release -p:Version=${{ steps.ver.outputs.version }}
+
+      - name: Unit tests
+        run: dotnet test -c Release --no-build
+
+      - name: Pack
+        run: dotnet pack src/Claudebox -c Release --no-build -p:Version=${{ steps.ver.outputs.version }} -o artifacts
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v3.0.3
+        with:
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: ${{ steps.ver.outputs.tag }}
+          files: artifacts/*.nupkg
+          prerelease: ${{ steps.ver.outputs.prerelease }}
+          generate_release_notes: true
+
+      # ---- NuGet -------------------------------------------------------------------
+      # Trusted publishing: nuget.org has a policy for Yazwh0/ClaudeBox + release.yml, so
+      # NuGet/login swaps this job's OIDC token for a one-hour API key. The only secret is
+      # NUGET_USER (the nuget.org account name); without it the NuGet publish is skipped.
+      - name: Check for NuGet user
+        id: nuget
         shell: bash
-        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+        run: |
+          if [ -n "${{ secrets.NUGET_USER }}" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::NUGET_USER not set - skipping NuGet publish."
+          fi
 
-      - run: dotnet build -c Release -p:Version=${{ env.VERSION }}
+      - name: NuGet login (OIDC -> temp API key)
+        if: steps.nuget.outputs.present == 'true'
+        uses: NuGet/login@v1
+        id: nuget-login
+        with:
+          user: ${{ secrets.NUGET_USER }}
 
-      - run: dotnet test -c Release --no-build
-
-      - run: dotnet pack src/Claudebox -c Release --no-build -p:Version=${{ env.VERSION }} -o artifacts
-
-      - name: Publish to NuGet
-        run: dotnet nuget push "artifacts/*.nupkg" --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
-
-      - name: GitHub release
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" artifacts/*.nupkg --title "$GITHUB_REF_NAME" --generate-notes
+      - name: Push to NuGet
+        if: steps.nuget.outputs.present == 'true'
+        run: dotnet nuget push "artifacts/*.nupkg" --api-key ${{ steps.nuget-login.outputs.NUGET_API_KEY }} -s https://api.nuget.org/v3/index.json --skip-duplicate
