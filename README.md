@@ -229,7 +229,7 @@ Colours can be a name or hex (`#RRGGBB` or `#RGB`), and names are saved as names
 
 `cb` starts `claude` with a session ID it chooses and passes some hooks with `--settings`, so your own Claude settings aren't touched. The hooks keep the session ID up to date after `/clear` and track whether Claude is busy or waiting. Exiting Claude or closing its tab marks the session as ended; a shutdown or crash leaves it open, which is how `cb restore` knows what to bring back. Claude exiting with an error counts as a crash. Closing a window closes all its tabs within a second or two, so sessions closed less than two seconds apart count as interrupted too; this also covers the terminal crashing, which looks like the window being closed. A window with only one tab looks like closing that tab, so it stays closed.
 
-Sessions are kept in `%APPDATA%\claudebox\sessions.json`.
+Sessions are kept in `%APPDATA%\claudebox\sessions.json`, with the previous save as `sessions.json.bak`. If the file is ever damaged, cb goes back to the backup and keeps the damaged one as `sessions.json.damaged`.
 
 ## Updating
 
