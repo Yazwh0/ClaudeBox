@@ -61,16 +61,18 @@ internal sealed class SessionStore(string path)
         }
         catch (JsonException e)
         {
-            SessionFile backup;
+            SessionFile? backup = null;
             try
             {
-                backup = File.Exists(BackupPath) ? Parse(BackupPath) : throw e;
+                if (File.Exists(BackupPath))
+                    backup = Parse(BackupPath);
             }
             catch (JsonException)
             {
+            }
+            if (backup is null)
                 throw new SessionStoreException(
                     $"{path} is damaged ({e.Message}) and there's no good backup. Fix it, or delete it to start again with no sessions.");
-            }
 
             // Put the backup back, keeping the damaged file to look at, so this only happens once.
             File.Copy(path, DamagedPath, overwrite: true);
