@@ -77,7 +77,7 @@ internal sealed class SessionStore(string path)
             File.Copy(BackupPath, path, overwrite: true);
             var message = $"{path} was damaged, so cb went back to its backup from {File.GetLastWriteTime(BackupPath):yyyy-MM-dd HH:mm}. " +
                           $"The damaged file is {DamagedPath}.";
-            Log.Write(message);
+            Log.Write(message, Path.Combine(Path.GetDirectoryName(path)!, Path.GetFileName(AppPaths.Log)));
             Console.Error.WriteLine(message);
             return backup;
         }

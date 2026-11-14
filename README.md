@@ -62,11 +62,23 @@ Reopens a saved session with its conversation, in its own folder. Refuses if it'
 
 ### `cb ls`
 
-Lists sessions with their work type (in its colour), status, when they were last active and their folder.
+Lists sessions with their work type (in its colour), status, how long ago they were last active and their folder. Each keeps its number when others are filtered out, so `cb resume 3` always means the same session.
 
 | Option | |
 | --- | --- |
 | `-a`, `--all` | Include sessions closed more than two weeks ago |
+| `-w`, `--work <type>` | Only sessions of this work type |
+| `-s`, `--status <status>` | Only sessions with this status (see [Statuses](#statuses)), e.g. `waiting` or `interrupted` |
+| `-d`, `--dir <path>` | Only sessions in this folder or one inside it (`.` for the current folder) |
+| `--json` | Print the sessions as JSON, for scripts |
+
+### `cb info <session>`
+
+Shows everything about a session: its status and pid, the conversation's title, work type, colour, folder, Claude's session ID (and earlier ones from before a `/clear`), where its transcript is, the Claude arguments it gets and where each comes from, and when it was created, last active and closed.
+
+### `cb doctor`
+
+Checks that everything cb needs is working: Claude and Windows Terminal can be found, the settings and sessions load, every session's folder and transcript is there, cb still understands Claude's running-session files, and nothing has gone wrong in the log in the last week. It also says whether `cb restore` runs when you log in. Exits with 1 if it finds a problem.
 
 ### `cb restore`
 

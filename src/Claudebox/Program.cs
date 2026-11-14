@@ -47,8 +47,13 @@ resumeCommand.SetAction(r => SessionCommands.Resume(r.GetValue(sessionArgument)!
 
 // ls
 var lsAll = new Option<bool>("--all", "-a") { Description = "Include sessions closed more than two weeks ago" };
-var lsCommand = new Command("ls", "List sessions") { lsAll };
-lsCommand.SetAction(r => SessionCommands.List(r.GetValue(lsAll)));
+var lsWork = new Option<string?>("--work", "-w") { Description = "Only sessions of this work type" };
+var lsStatus = new Option<string?>("--status", "-s") { Description = "Only sessions with this status, e.g. waiting or interrupted" };
+var lsDir = new Option<DirectoryInfo?>("--dir", "-d") { Description = "Only sessions in this folder or one inside it (. for this one)" };
+var lsJson = new Option<bool>("--json") { Description = "Print the sessions as JSON" };
+var lsCommand = new Command("ls", "List sessions") { lsAll, lsWork, lsStatus, lsDir, lsJson };
+lsCommand.SetAction(r => SessionCommands.List(
+    r.GetValue(lsAll), r.GetValue(lsWork), r.GetValue(lsStatus), r.GetValue(lsDir), r.GetValue(lsJson)));
 
 // restore
 var restoreAll = new Option<bool>("--all", "-a") { Description = "Reopen every session that isn't running, not just interrupted ones" };
@@ -80,6 +85,14 @@ setCommand.SetAction(r => SessionCommands.Set(r.GetValue(sessionArgument)!,
 var renameNewName = new Argument<string>("new-name");
 var renameCommand = new Command("rename", "Rename a session (same as cb set --name)") { sessionArgument, renameNewName };
 renameCommand.SetAction(r => SessionCommands.Set(r.GetValue(sessionArgument)!, new SessionChanges(Name: r.GetValue(renameNewName))));
+
+// info
+var infoCommand = new Command("info", "Show everything about a session: its IDs, transcript, Claude arguments and times") { sessionArgument };
+infoCommand.SetAction(r => InfoCommands.Info(r.GetValue(sessionArgument)!));
+
+// doctor
+var doctorCommand = new Command("doctor", "Check that everything cb needs is working");
+doctorCommand.SetAction(_ => InfoCommands.Doctor());
 
 // rm
 var rmSession = new Argument<string?>("session")
@@ -187,7 +200,8 @@ var version = typeof(Program).Assembly
 var root = new RootCommand($"BitMagic ClaudeBox {version}: named, restorable Claude Code sessions. On its own, cb starts a session in this folder.")
 {
     hereOption,
-    newCommand, resumeCommand, lsCommand, restoreCommand, setCommand, renameCommand, rmCommand, adoptCommand,
+    newCommand, resumeCommand, lsCommand, infoCommand, restoreCommand, setCommand, renameCommand, rmCommand, adoptCommand,
+    doctorCommand,
     startupCommand, configCommand, workCommand, aliasCommand, runCommand, hookCommand,
 };
 root.SetAction(r => SessionCommands.Quick(r.GetValue(hereOption)));

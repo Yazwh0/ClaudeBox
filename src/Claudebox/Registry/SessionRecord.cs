@@ -39,6 +39,8 @@ internal static class SessionStatus
     public const string Exited = "exited";
     public const string Closed = "closed";
     public const string Interrupted = "interrupted";
+
+    public static readonly string[] All = [New, Running, Waiting, Busy, Attention, Exited, Closed, Interrupted];
 }
 
 internal sealed class SessionFile

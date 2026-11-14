@@ -186,32 +186,62 @@ internal static class SessionCommands
         return 0;
     }
 
-    public static int List(bool all)
+    /// <summary>
+    /// Lists sessions, numbered by their place in the registry (what cb resume 3 means), so
+    /// filtering never renumbers them. Old exited and closed ones are left out unless all.
+    /// </summary>
+    public static int List(bool all, string? work, string? status, DirectoryInfo? dir, bool json)
     {
+        if (status is not null && !SessionStatus.All.Contains(status, StringComparer.OrdinalIgnoreCase))
+            return Fail($"Unknown status '{status}'. Use one of {string.Join(", ", SessionStatus.All)}.");
+
         var sessions = SessionStore.Default.ReadAll();
-        if (sessions.Count == 0)
+        var closedTogether = RestorePlanner.ClosedTogether(sessions);
+        var now = DateTimeOffset.Now;
+        var rows = sessions
+            .Select((s, i) => (Number: i + 1, Session: s, Status: ProcessLiveness.EffectiveStatus(s, closedTogether.Contains(s.Id))))
+            .Where(r => (all || status is not null || !(r.Status is SessionStatus.Exited or SessionStatus.Closed && r.Session.LastActiveAt < now.AddDays(-14)))
+                     && SessionFilter.MatchesWork(r.Session, work)
+                     && (status is null || r.Status.Equals(status, StringComparison.OrdinalIgnoreCase))
+                     && (dir is null || SessionFilter.IsUnder(r.Session, dir.FullName)))
+            .ToList();
+
+        if (json)
         {
-            Console.WriteLine("No sessions yet. Run cb to start one here, or cb new \"<name>\".");
+            Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(rows.Select(r => new
+            {
+                number = r.Number,
+                name = r.Session.Name,
+                status = r.Status,
+                work = r.Session.Work,
+                colour = r.Session.Colour,
+                folder = r.Session.Cwd,
+                lastActive = r.Session.LastActiveAt,
+                sessionId = r.Session.SessionId,
+                id = r.Session.Id,
+            }), Config.JsonOptions));
+            return 0;
+        }
+
+        if (rows.Count == 0)
+        {
+            Console.WriteLine(sessions.Count == 0 ? "No sessions yet. Run cb to start one here, or cb new \"<name>\"."
+                : work is null && status is null && dir is null ? "No recent sessions. Use --all to see older ones."
+                : "No sessions match.");
             return 0;
         }
 
         var useColour = !Console.IsOutputRedirected;
-        var nameWidth = Math.Max(4, sessions.Max(s => s.Name.Length));
-        var workWidth = Math.Max(4, sessions.Max(s => s.Work?.Length ?? 0));
-        Console.WriteLine($"{"#",3}  {"Name".PadRight(nameWidth)}  {"Work".PadRight(workWidth)}  {"Status",-12}  {"Last active",-16}  Folder");
-        var closedTogether = RestorePlanner.ClosedTogether(sessions);
-        for (var i = 0; i < sessions.Count; i++)
+        var nameWidth = Math.Max(4, rows.Max(r => r.Session.Name.Length));
+        var workWidth = Math.Max(4, rows.Max(r => r.Session.Work?.Length ?? 0));
+        Console.WriteLine($"{"#",3}  {"Name".PadRight(nameWidth)}  {"Work".PadRight(workWidth)}  {"Status",-12}  {"Last active",-11}  Folder");
+        foreach (var (number, s, rowStatus) in rows)
         {
-            var s = sessions[i];
-            var status = ProcessLiveness.EffectiveStatus(s, closedTogether.Contains(s.Id));
-            if (!all && status is SessionStatus.Exited or SessionStatus.Closed && s.LastActiveAt < DateTimeOffset.Now.AddDays(-14))
-                continue;
-
-            var work = (s.Work ?? "").PadRight(workWidth);
+            var workText = (s.Work ?? "").PadRight(workWidth);
             if (useColour && s.Colour is { } colour)
-                work = Colours.Ansi(colour) + work + Colours.Reset;
+                workText = Colours.Ansi(colour) + workText + Colours.Reset;
 
-            Console.WriteLine($"{i + 1,3}  {s.Name.PadRight(nameWidth)}  {work}  {status,-12}  {s.LastActiveAt:yyyy-MM-dd HH:mm}  {s.Cwd}");
+            Console.WriteLine($"{number,3}  {s.Name.PadRight(nameWidth)}  {workText}  {rowStatus,-12}  {TimeText.Ago(s.LastActiveAt, now),-11}  {s.Cwd}");
         }
         return 0;
     }

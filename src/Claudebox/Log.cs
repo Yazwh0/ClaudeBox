@@ -6,15 +6,17 @@ internal static class Log
     /// <summary>Past this, the log becomes cb.log.old (replacing the last one) and a new one starts.</summary>
     private const long MaxBytes = 1024 * 1024;
 
-    public static void Write(string message)
+    /// <summary>To cb.log, or another log (e.g. beside a test's own files).</summary>
+    public static void Write(string message, string? path = null)
     {
+        path ??= AppPaths.Log;
         try
         {
-            Directory.CreateDirectory(AppPaths.Root);
-            var log = new FileInfo(AppPaths.Log);
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            var log = new FileInfo(path);
             if (log.Exists && log.Length > MaxBytes)
-                log.MoveTo(AppPaths.Log + ".old", overwrite: true);
-            File.AppendAllText(AppPaths.Log, $"{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss} [{Environment.ProcessId}] {message}{Environment.NewLine}");
+                log.MoveTo(path + ".old", overwrite: true);
+            File.AppendAllText(path, $"{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss} [{Environment.ProcessId}] {message}{Environment.NewLine}");
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
