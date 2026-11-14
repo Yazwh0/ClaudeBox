@@ -52,6 +52,7 @@ internal sealed class ClaudeLauncher(SessionStore store, Config config)
             r.Status = SessionStatus.Running;
             r.Pid = process.Id;
             r.ProcessStartedAt = new DateTimeOffset(process.StartTime);
+            r.ConsolePid = Environment.ProcessId;
             r.LastActiveAt = DateTimeOffset.Now;
             r.ClosedAt = null;
         });
@@ -95,6 +96,7 @@ internal sealed class ClaudeLauncher(SessionStore store, Config config)
     private void MarkInterrupted(string id) => store.UpdateRecord(id, r =>
     {
         r.Status = SessionStatus.Interrupted;
+        r.ConsolePid = null;
         r.LastActiveAt = DateTimeOffset.Now;
         r.TranscriptPath = Transcripts.Find(r.SessionId, r.TranscriptPath);
     });
@@ -105,6 +107,7 @@ internal sealed class ClaudeLauncher(SessionStore store, Config config)
         r.Status = status;
         r.Pid = null;
         r.ProcessStartedAt = null;
+        r.ConsolePid = null;
         r.ClosedAt = DateTimeOffset.Now;
         r.LastActiveAt = DateTimeOffset.Now;
         r.TranscriptPath = Transcripts.Find(r.SessionId, r.TranscriptPath);

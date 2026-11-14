@@ -413,10 +413,30 @@ internal static class SessionCommands
         if (store.Update(file => changes.ApplyTo(file, target.Id, config)) is { } error)
             return Fail(error);
 
-        var name = changes.Name is null ? target.Name : NameClash.CleanName(changes.Name);
-        Console.WriteLine(ProcessLiveness.IsAlive(target)
-            ? $"Updated '{name}'. Its tab changes next time it's opened."
-            : $"Updated '{name}'.");
+        var updated = store.ReadAll().Find(s => s.Id == target.Id) ?? target;
+        var alive = ProcessLiveness.IsAlive(updated);
+        // Windows Terminal can't recolour an open tab, but its title can change now. Adopted sessions
+        // running outside cb have no cb tab to retitle.
+        var retitle = alive && changes.Name is not null && updated.ConsolePid is not null;
+        var nameWaits = alive && changes.Name is not null && !retitle;
+        var coloursWait = alive && (changes.Work ?? changes.Colour ?? changes.Scheme) is not null;
+        Console.WriteLine($"Updated '{updated.Name}'." +
+            (nameWaits ? " Its tab changes next time it's opened."
+            : coloursWait ? " Its tab's colours change next time it's opened."
+            : ""));
+
+        // Last, as it briefly leaves this console; the next hook would put the new name up anyway.
+        if (retitle)
+        {
+            try
+            {
+                TerminalTitle.SetOnConsoleOf(updated.ConsolePid!.Value, TerminalTitle.WithStatus(updated.Name, updated.Status), reattach: true);
+            }
+            catch (IOException e)
+            {
+                Log.Write($"Couldn't retitle '{updated.Name}': {e.Message}");
+            }
+        }
         return 0;
     }
 

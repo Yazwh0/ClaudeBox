@@ -18,6 +18,8 @@ internal sealed class SessionRecord
     public string Status { get; set; } = SessionStatus.New;
     public int? Pid { get; set; }
     public DateTimeOffset? ProcessStartedAt { get; set; }
+    /// <summary>The cb process running the session in its tab, whose console the tab title belongs to.</summary>
+    public int? ConsolePid { get; set; }
     public bool Open { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.Now;
     public DateTimeOffset LastActiveAt { get; set; } = DateTimeOffset.Now;

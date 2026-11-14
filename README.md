@@ -86,7 +86,7 @@ Shows whether `cb restore` runs when you log in. `cb startup enable` turns it on
 
 ### `cb set <session>`
 
-Changes a session's details. Changes to an open session's tab show the next time it's opened.
+Changes a session's details. A new name shows in an open session's tab straight away; a new colour or scheme shows the next time it's opened, as Windows Terminal can't change them on an open tab.
 
 | Option | |
 | --- | --- |
