@@ -130,9 +130,12 @@ internal static class SessionCommands
     {
         var lastShutdown = SystemTimes.LastShutdown();
         var everything = all || work is not null;
-        var toRestore = SessionStore.Default.ReadAll()
+        var sessions = SessionStore.Default.ReadAll();
+        var closedTogether = RestorePlanner.ClosedTogether(sessions);
+        var toRestore = sessions
             .Where(s => SessionFilter.MatchesWork(s, work)
-                     && RestorePlanner.IsRestorable(s, everything, ProcessLiveness.IsAlive(s), lastShutdown))
+                     && RestorePlanner.IsRestorable(s, everything, ProcessLiveness.IsAlive(s), lastShutdown,
+                         closedTogether.Contains(s.Id)))
             .ToList();
 
         if (toRestore.Count == 0)
@@ -196,10 +199,11 @@ internal static class SessionCommands
         var nameWidth = Math.Max(4, sessions.Max(s => s.Name.Length));
         var workWidth = Math.Max(4, sessions.Max(s => s.Work?.Length ?? 0));
         Console.WriteLine($"{"#",3}  {"Name".PadRight(nameWidth)}  {"Work".PadRight(workWidth)}  {"Status",-12}  {"Last active",-16}  Folder");
+        var closedTogether = RestorePlanner.ClosedTogether(sessions);
         for (var i = 0; i < sessions.Count; i++)
         {
             var s = sessions[i];
-            var status = ProcessLiveness.EffectiveStatus(s);
+            var status = ProcessLiveness.EffectiveStatus(s, closedTogether.Contains(s.Id));
             if (!all && status is SessionStatus.Exited or SessionStatus.Closed && s.LastActiveAt < DateTimeOffset.Now.AddDays(-14))
                 continue;
 
@@ -432,7 +436,9 @@ internal static class SessionCommands
 
         if (bulk)
         {
-            targets = sessions.Where(s => SessionFilter.IsRemovable(s, ProcessLiveness.IsAlive(s), exited, work)).ToList();
+            var closedTogether = RestorePlanner.ClosedTogether(sessions);
+            targets = sessions.Where(s => SessionFilter.IsRemovable(s, ProcessLiveness.IsAlive(s), exited, work,
+                closedTogether.Contains(s.Id))).ToList();
             if (targets.Count == 0)
             {
                 Console.WriteLine(work is null ? "No exited sessions." : $"No '{work}' sessions to remove.");

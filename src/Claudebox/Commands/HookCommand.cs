@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Claudebox.Registry;
+using Claudebox.Terminal;
 
 namespace Claudebox.Commands;
 
@@ -21,7 +22,15 @@ internal static class HookCommand
             var sessionId = GetString(payload.RootElement, "session_id");
             var transcriptPath = GetString(payload.RootElement, "transcript_path");
 
-            SessionStore.Default.UpdateRecord(id, r => Apply(r, eventName, sessionId, transcriptPath));
+            string? title = null;
+            SessionStore.Default.UpdateRecord(id, r =>
+            {
+                Apply(r, eventName, sessionId, transcriptPath);
+                title = TerminalTitle.WithStatus(r.Name, eventName == "SessionEnd" ? SessionStatus.Running : r.Status);
+            });
+
+            if (title is not null && int.TryParse(Environment.GetEnvironmentVariable("CLAUDEBOX_CONSOLE_PID"), out var consolePid))
+                TerminalTitle.SetOnConsoleOf(consolePid, title);
         }
         catch (Exception e)
         {

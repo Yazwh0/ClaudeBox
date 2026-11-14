@@ -52,6 +52,60 @@ public class LifecycleTests
         Assert.False(RestorePlanner.IsRestorable(record, all: false, alive: false, lastShutdown: null));
     }
 
+    [Fact]
+    public void Restorable_ClosedWithItsWindow()
+    {
+        var record = Record(status: SessionStatus.Closed, closedAt: Shutdown.AddDays(-1));
+        Assert.True(RestorePlanner.IsRestorable(record, all: false, alive: false, Shutdown, closedWithOthers: true));
+        Assert.False(RestorePlanner.IsRestorable(record, all: false, alive: false, Shutdown, closedWithOthers: false));
+    }
+
+    [Fact]
+    public void NotRestorable_ExitedWithOthers()
+    {
+        var record = Record(status: SessionStatus.Exited, closedAt: Shutdown.AddDays(-1));
+        Assert.False(RestorePlanner.IsRestorable(record, all: false, alive: false, Shutdown, closedWithOthers: true));
+    }
+
+    [Fact]
+    public void ClosedTogether_ChainsClosesUnderTwoSecondsApart()
+    {
+        var t = Shutdown.AddDays(-1);
+        SessionRecord Closed(string id, double seconds, string status = SessionStatus.Closed)
+        {
+            var r = Record(status: status, closedAt: t.AddSeconds(seconds));
+            r.Id = id;
+            return r;
+        }
+
+        var together = RestorePlanner.ClosedTogether(
+        [
+            Closed("window1", 0), Closed("window2", 1.5), Closed("window3", 3),  // a chain: each within 2s of the last
+            Closed("alone", 60),                                                // one tab closed by hand
+            Closed("exited", 61, SessionStatus.Exited),                         // exits never count
+            Closed("later", 120),
+        ]);
+
+        Assert.Equal(["window1", "window2", "window3"], together.Order());
+    }
+
+    [Fact]
+    public void Removable_ExitedOnly_KeepsClosedWithItsWindow()
+    {
+        var record = Record(status: SessionStatus.Closed, closedAt: Shutdown);
+        Assert.True(SessionFilter.IsRemovable(record, alive: false, exitedOnly: true, work: null));
+        Assert.False(SessionFilter.IsRemovable(record, alive: false, exitedOnly: true, work: null, closedWithOthers: true));
+        Assert.True(SessionFilter.IsRemovable(record, alive: false, exitedOnly: false, work: null, closedWithOthers: true));
+    }
+
+    [Fact]
+    public void EffectiveStatus_ClosedWithItsWindow_IsInterrupted()
+    {
+        var record = Record(status: SessionStatus.Closed, closedAt: Shutdown);
+        Assert.Equal(SessionStatus.Interrupted, ProcessLiveness.EffectiveStatus(record, closedWithOthers: true));
+        Assert.Equal(SessionStatus.Closed, ProcessLiveness.EffectiveStatus(record));
+    }
+
     [Theory]
     [InlineData(false, false, null, true)]   // exited, no filters
     [InlineData(true, false, null, false)]   // running: never removed

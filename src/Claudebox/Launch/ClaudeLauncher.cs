@@ -26,6 +26,10 @@ internal sealed class ClaudeLauncher(SessionStore store, Config config)
         foreach (var arg in BuildArguments(record, transcriptExists, HooksFile.Write(cbCommand), ConfigArgs(config, record)))
             info.ArgumentList.Add(arg);
         info.Environment["CLAUDEBOX_ID"] = record.Id;
+        // cb's hooks keep the title as the session's name plus a status icon, so Claude mustn't set
+        // its own. Hooks have their own hidden console, so they reach the tab through this process's.
+        info.Environment["CLAUDE_CODE_DISABLE_TERMINAL_TITLE"] = "1";
+        info.Environment["CLAUDEBOX_CONSOLE_PID"] = Environment.ProcessId.ToString();
 
         TerminalTitle.Set(record.Name);
 
@@ -54,7 +58,16 @@ internal sealed class ClaudeLauncher(SessionStore store, Config config)
 
         process.WaitForExit();
         // Closing the tab kills Claude too, so WaitForExit can return while the close handler runs.
-        if (!_closing)
+        if (_closing)
+            return process.ExitCode;
+
+        // Drop the status icon, since Claude isn't running any more.
+        TerminalTitle.Set(store.ReadAll().Find(s => s.Id == record.Id)?.Name ?? record.Name);
+
+        // A failed exit is a crash rather than you exiting: leave the session open so it's restored.
+        if (process.ExitCode != 0)
+            MarkInterrupted(record.Id);
+        else
             MarkClosed(record.Id, SessionStatus.Exited);
         return process.ExitCode;
     }
@@ -78,6 +91,13 @@ internal sealed class ClaudeLauncher(SessionStore store, Config config)
         args.AddRange(record.ClaudeArgs);
         return args;
     }
+
+    private void MarkInterrupted(string id) => store.UpdateRecord(id, r =>
+    {
+        r.Status = SessionStatus.Interrupted;
+        r.LastActiveAt = DateTimeOffset.Now;
+        r.TranscriptPath = Transcripts.Find(r.SessionId, r.TranscriptPath);
+    });
 
     private void MarkClosed(string id, string status) => store.UpdateRecord(id, r =>
     {

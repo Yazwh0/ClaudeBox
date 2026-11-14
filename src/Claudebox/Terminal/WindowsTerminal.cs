@@ -38,7 +38,9 @@ internal static class WindowsTerminal
 
     internal static List<string> BuildTabArguments(SessionRecord record, IReadOnlyList<string> cbCommand, string? profile = null)
     {
-        List<string> args = ["new-tab", "--title", Escape(record.Name), "--suppressApplicationTitle"];
+        // Not --suppressApplicationTitle: that would block cb's hooks from showing the status in the
+        // title too. Claude is told not to set the title instead (see ClaudeLauncher).
+        List<string> args = ["new-tab", "--title", Escape(record.Name)];
         if (profile is not null)
             args.AddRange(["--profile", profile]);
         if (record.Colour is { } colour)

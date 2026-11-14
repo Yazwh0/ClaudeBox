@@ -18,7 +18,7 @@ internal sealed class ExamplesHelpAction(SynchronousCommandLineAction standardHe
           cb new "API refactor" --replace     if the name is taken, replace it without asking
           cb ls                               list sessions and their status
           cb resume "API refactor"            reopen a session (name, number from ls, or prefix)
-          cb restore                          reopen sessions interrupted by a reboot or crash
+          cb restore                          reopen sessions lost to a reboot, crash or closed window
           cb restore --all                    reopen every session that isn't running
           cb restore --work hotfix            ... only one work type (--dry-run to preview)
           cb set 2 --work hotfix              change a session's name, work type, colour or scheme

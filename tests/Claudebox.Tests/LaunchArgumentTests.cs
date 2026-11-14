@@ -61,9 +61,20 @@ public class LaunchArgumentTests
     public void TabArguments_IncludeTitleFolderAndRunCommand()
     {
         Assert.Equal(
-            ["new-tab", "--title", "Login hotfix", "--suppressApplicationTitle",
+            ["new-tab", "--title", "Login hotfix",
              "-d", @"C:\src\app", @"C:\tools\cb.exe", "run", "abc123def456"],
             WindowsTerminal.BuildTabArguments(Record(), [@"C:\tools\cb.exe"]));
+    }
+
+    [Theory]
+    [InlineData(SessionStatus.Busy, "● Login hotfix")]
+    [InlineData(SessionStatus.Waiting, "○ Login hotfix")]
+    [InlineData(SessionStatus.Attention, "! Login hotfix")]
+    [InlineData(SessionStatus.Running, "Login hotfix")]
+    [InlineData(SessionStatus.Exited, "Login hotfix")]
+    public void Title_ShowsStatusIcon(string status, string expected)
+    {
+        Assert.Equal(expected, TerminalTitle.WithStatus("Login hotfix", status));
     }
 
     [Fact]

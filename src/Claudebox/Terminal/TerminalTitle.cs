@@ -1,3 +1,6 @@
+using System.Runtime.InteropServices;
+using Claudebox.Registry;
+
 namespace Claudebox.Terminal;
 
 internal static class TerminalTitle
@@ -6,6 +9,43 @@ internal static class TerminalTitle
     public static void Set(string title)
     {
         if (!Console.IsOutputRedirected)
-            Console.Write($"\e]0;{title}\a");
+            Console.Write(Sequence(title));
     }
+
+    /// <summary>The session's name with an icon for its status, as hooks show it in the tab.</summary>
+    public static string WithStatus(string name, string status) => status switch
+    {
+        SessionStatus.Busy => $"● {name}",
+        SessionStatus.Waiting => $"○ {name}",
+        SessionStatus.Attention => $"! {name}",
+        _ => name,
+    };
+
+    /// <summary>
+    /// Sets the title of another process's console. Claude runs hooks with a hidden console of their
+    /// own, so a hook has to attach to the tab's console (the cb process running there) to reach it.
+    /// </summary>
+    public static void SetOnConsoleOf(int pid, string title)
+    {
+        FreeConsole();
+        if (!AttachConsole((uint)pid))
+            throw new IOException($"Couldn't attach to the console of process {pid} (error {Marshal.GetLastPInvokeError()}).");
+        try
+        {
+            using var console = File.OpenWrite("CONOUT$");
+            console.Write(System.Text.Encoding.UTF8.GetBytes(Sequence(title)));
+        }
+        finally
+        {
+            FreeConsole();
+        }
+    }
+
+    private static string Sequence(string title) => $"\e]0;{title}\a";
+
+    [DllImport("kernel32.dll")]
+    private static extern bool FreeConsole();
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool AttachConsole(uint processId);
 }

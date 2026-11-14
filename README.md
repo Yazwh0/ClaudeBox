@@ -70,7 +70,7 @@ Lists sessions with their work type (in its colour), status, when they were last
 
 ### `cb restore`
 
-Reopens sessions in tabs, all in one go. On its own it reopens only sessions that were interrupted (by a reboot, crash or shutdown); ones you closed yourself stay closed.
+Reopens sessions in tabs, all in one go. On its own it reopens only sessions that were interrupted: by a reboot or shutdown, Claude or the terminal crashing, or closing the whole Windows Terminal window. Tabs you closed one at a time, and sessions you exited, stay closed.
 
 | Option | |
 | --- | --- |
@@ -105,7 +105,7 @@ Forgets sessions. Claude's transcripts are kept unless you ask otherwise, and ru
 
 | Option | |
 | --- | --- |
-| `--exited` | Every session that was exited or closed (interrupted ones are kept so they can be restored) |
+| `--exited` | Every session that was exited or closed (interrupted ones, including those closed with their window, are kept so they can be restored) |
 | `-w`, `--work <type>` | Every session of this work type that isn't running; with `--exited`, only the exited ones |
 | `-y`, `--yes` | Don't ask before removing several |
 | `--forget-transcript` | Also delete Claude's transcript of the conversation |
@@ -186,7 +186,9 @@ An alias is one word and can't be the name of a `cb` command. Its command is wha
 | `attention` | Claude needs you, e.g. to approve a tool |
 | `exited` | You exited Claude |
 | `closed` | You closed the tab |
-| `interrupted` | Was running when Windows shut down or something crashed; `cb restore` brings these back |
+| `interrupted` | Was running when Windows shut down, Claude or the terminal crashed, or its window was closed; `cb restore` brings these back |
+
+Each tab's title shows its session's status: `○ Name` while Claude waits for you, `● Name` while it's working, `! Name` when it needs you, and just the name once Claude has ended. cb sets this instead of Claude, so the tab keeps the session's name rather than Claude's title for the conversation.
 
 ## Config
 
@@ -225,7 +227,7 @@ Colours can be a name or hex (`#RRGGBB` or `#RGB`), and names are saved as names
 
 ## How it works
 
-`cb` starts `claude` with a session ID it chooses and passes some hooks with `--settings`, so your own Claude settings aren't touched. The hooks keep the session ID up to date after `/clear` and track whether Claude is busy or waiting. Exiting Claude or closing its tab marks the session as ended; a shutdown or crash leaves it open, which is how `cb restore` knows what to bring back.
+`cb` starts `claude` with a session ID it chooses and passes some hooks with `--settings`, so your own Claude settings aren't touched. The hooks keep the session ID up to date after `/clear` and track whether Claude is busy or waiting. Exiting Claude or closing its tab marks the session as ended; a shutdown or crash leaves it open, which is how `cb restore` knows what to bring back. Claude exiting with an error counts as a crash. Closing a window closes all its tabs within a second or two, so sessions closed less than two seconds apart count as interrupted too; this also covers the terminal crashing, which looks like the window being closed. A window with only one tab looks like closing that tab, so it stays closed.
 
 Sessions are kept in `%APPDATA%\claudebox\sessions.json`.
 
