@@ -155,4 +155,40 @@ public class LifecycleTests
         Assert.Equal("new-id", record.SessionId);
         Assert.Equal(@"C:\t\new-id.jsonl", record.TranscriptPath);
     }
+
+    [Theory]
+    [InlineData("permission_prompt", SessionStatus.Attention)]
+    [InlineData("elicitation_dialog", SessionStatus.Attention)]
+    [InlineData(null, SessionStatus.Attention)]
+    [InlineData("idle_prompt", SessionStatus.Waiting)]
+    [InlineData("auth_success", SessionStatus.Waiting)]
+    public void Hook_Notification_OnlyNeedsYouForSomeTypes(string? type, string expected)
+    {
+        var record = Record(status: SessionStatus.Waiting);
+        HookCommand.Apply(record, "Notification", null, null, notificationType: type);
+        Assert.Equal(expected, record.Status);
+    }
+
+    [Fact]
+    public void Hook_Clear_RemembersPreviousConversation()
+    {
+        var record = Record();
+        var old = record.SessionId;
+        HookCommand.Apply(record, "SessionStart", "new-id", null, source: "clear");
+        HookCommand.Apply(record, "SessionStart", "new-id", null, source: "clear");
+
+        Assert.Equal([old], record.PreviousSessionIds);
+    }
+
+    [Theory]
+    [InlineData("resume")]
+    [InlineData("startup")]
+    [InlineData(null)]
+    public void Hook_OtherSessionStarts_DontRememberPreviousConversation(string? source)
+    {
+        var record = Record();
+        HookCommand.Apply(record, "SessionStart", "other-id", null, source: source);
+
+        Assert.Empty(record.PreviousSessionIds);
+    }
 }

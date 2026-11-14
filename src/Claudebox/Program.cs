@@ -4,6 +4,10 @@ using Claudebox;
 using Claudebox.Commands;
 using Claudebox.Registry;
 
+// Hooks run on every prompt and stop, inside Claude, so skip building the whole command line for them.
+if (args is ["hook", var hookEventName])
+    return HookCommand.Handle(hookEventName);
+
 var hereOption = new Option<bool>("--here") { Description = "Run in this tab instead of opening a new one (keeps this tab's colours)" };
 var sessionArgument = new Argument<string>("session") { Description = "Session name, number from 'cb ls', or id prefix" };
 

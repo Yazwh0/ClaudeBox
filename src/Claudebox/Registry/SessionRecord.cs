@@ -9,6 +9,8 @@ internal sealed class SessionRecord
     public required string Cwd { get; set; }
     public string SessionId { get; set; } = Guid.NewGuid().ToString();
     public string? TranscriptPath { get; set; }
+    /// <summary>Earlier conversations in this session, from before a /clear.</summary>
+    public List<string> PreviousSessionIds { get; set; } = [];
     public List<string> ClaudeArgs { get; set; } = [];
     public string? Work { get; set; }
     public string? Colour { get; set; }

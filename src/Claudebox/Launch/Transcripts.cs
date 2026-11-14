@@ -23,6 +23,22 @@ internal static class Transcripts
             .FirstOrDefault(File.Exists);
     }
 
+    /// <summary>
+    /// Deletes a conversation's transcript and the folder of the same name beside it (subagents,
+    /// tool results). False if there was no transcript.
+    /// </summary>
+    public static bool Delete(string sessionId, string? knownPath = null)
+    {
+        if (Find(sessionId, knownPath) is not { } path)
+            return false;
+
+        File.Delete(path);
+        var folder = Path.Combine(Path.GetDirectoryName(path)!, sessionId);
+        if (Directory.Exists(folder))
+            Directory.Delete(folder, recursive: true);
+        return true;
+    }
+
     /// <summary>Every transcript whose session ID starts with the prefix, in any project folder.</summary>
     public static List<string> FindByPrefix(string prefix) =>
         Directory.Exists(AppPaths.ClaudeProjects)

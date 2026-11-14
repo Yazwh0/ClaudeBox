@@ -108,7 +108,7 @@ Forgets sessions. Claude's transcripts are kept unless you ask otherwise, and ru
 | `--exited` | Every session that was exited or closed (interrupted ones, including those closed with their window, are kept so they can be restored) |
 | `-w`, `--work <type>` | Every session of this work type that isn't running; with `--exited`, only the exited ones |
 | `-y`, `--yes` | Don't ask before removing several |
-| `--forget-transcript` | Also delete Claude's transcript of the conversation |
+| `--forget-transcript` | Also delete Claude's transcripts of the conversation, including ones from before a `/clear` |
 
 ### `cb adopt [<session-id>]`
 

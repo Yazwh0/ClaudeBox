@@ -466,17 +466,23 @@ internal static class SessionCommands
         }
 
         var ids = targets.Select(s => s.Id).ToHashSet();
-        store.Update(f => f.Sessions.RemoveAll(s => ids.Contains(s.Id)));
+        var remaining = store.Update(f =>
+        {
+            f.Sessions.RemoveAll(s => ids.Contains(s.Id));
+            return f.Sessions;
+        });
 
         var deleted = 0;
         if (forgetTranscript)
         {
+            // A conversation another session has since resumed belongs to that one now.
+            var inUse = remaining.SelectMany(ConversationIds).ToHashSet(StringComparer.OrdinalIgnoreCase);
             foreach (var s in targets)
             {
-                if (Transcripts.Find(s.SessionId, s.TranscriptPath) is { } transcript)
+                foreach (var conversation in ConversationIds(s).Where(c => !inUse.Contains(c)))
                 {
-                    File.Delete(transcript);
-                    deleted++;
+                    if (Transcripts.Delete(conversation, conversation == s.SessionId ? s.TranscriptPath : null))
+                        deleted++;
                 }
             }
         }
@@ -522,6 +528,9 @@ internal static class SessionCommands
             _ => null,
         };
     }
+
+    private static IEnumerable<string> ConversationIds(SessionRecord record) =>
+        record.PreviousSessionIds.Prepend(record.SessionId);
 
     private static SessionRecord? FindByName(IEnumerable<SessionRecord> sessions, string name) =>
         sessions.FirstOrDefault(s => s.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
