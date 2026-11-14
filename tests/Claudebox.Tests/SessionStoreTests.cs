@@ -25,6 +25,39 @@ public sealed class SessionStoreTests : IDisposable
     }
 
     [Fact]
+    public void Update_KeepsPreviousSaveAsBackup()
+    {
+        var store = new SessionStore(StorePath);
+        store.Update(f => f.Sessions.Add(new SessionRecord { Name = "first", Cwd = "C:\\" }));
+        store.Update(f => f.Sessions.Add(new SessionRecord { Name = "second", Cwd = "C:\\" }));
+
+        Assert.Contains("first", File.ReadAllText(StorePath + ".bak"));
+        Assert.DoesNotContain("second", File.ReadAllText(StorePath + ".bak"));
+    }
+
+    [Fact]
+    public void ReadAll_WhenDamaged_GoesBackToBackup()
+    {
+        var store = new SessionStore(StorePath);
+        store.Update(f => f.Sessions.Add(new SessionRecord { Name = "kept", Cwd = "C:\\" }));
+        store.Update(f => f.Sessions.Add(new SessionRecord { Name = "lost", Cwd = "C:\\" }));
+        File.WriteAllText(StorePath, "{ \"sessions\": [ damaged");
+
+        Assert.Equal("kept", Assert.Single(store.ReadAll()).Name);
+        Assert.Equal("{ \"sessions\": [ damaged", File.ReadAllText(StorePath + ".damaged"));
+        Assert.Equal("kept", Assert.Single(new SessionStore(StorePath).ReadAll()).Name);
+    }
+
+    [Fact]
+    public void ReadAll_WhenDamagedWithoutBackup_Throws()
+    {
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(StorePath, "");
+
+        Assert.Throws<SessionStoreException>(() => new SessionStore(StorePath).ReadAll());
+    }
+
+    [Fact]
     public void Update_FromManyThreads_LosesNoWrites()
     {
         var store = new SessionStore(StorePath);

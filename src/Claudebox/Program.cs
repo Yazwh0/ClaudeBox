@@ -202,7 +202,7 @@ try
         args = Aliases.Expand(args, Config.Load().Aliases);
     return root.Parse(args).Invoke(new InvocationConfiguration { EnableDefaultExceptionHandler = false });
 }
-catch (Exception e) when (e is SessionNotFoundException or ConfigException or FileNotFoundException)
+catch (Exception e) when (e is SessionNotFoundException or ConfigException or SessionStoreException or FileNotFoundException)
 {
     Console.Error.WriteLine(e.Message);
     return 1;

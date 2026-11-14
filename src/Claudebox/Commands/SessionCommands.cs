@@ -446,7 +446,7 @@ internal static class SessionCommands
             }
 
             foreach (var s in targets)
-                Console.WriteLine($"  {s.Name}  ({ProcessLiveness.EffectiveStatus(s)}, last active {s.LastActiveAt:yyyy-MM-dd HH:mm})");
+                Console.WriteLine($"  {s.Name}  ({ProcessLiveness.EffectiveStatus(s, closedTogether.Contains(s.Id))}, last active {s.LastActiveAt:yyyy-MM-dd HH:mm})");
 
             if (!yes)
             {

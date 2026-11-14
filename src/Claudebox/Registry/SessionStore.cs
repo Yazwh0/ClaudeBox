@@ -45,20 +45,55 @@ internal sealed class SessionStore(string path)
             change(record);
     });
 
+    /// <summary>The previous save, kept so a damaged sessions.json doesn't lose every session.</summary>
+    private string BackupPath => path + ".bak";
+
+    private string DamagedPath => path + ".damaged";
+
     private SessionFile Load()
     {
         if (!File.Exists(path))
             return new SessionFile();
 
-        var json = File.ReadAllText(path);
-        return JsonSerializer.Deserialize<SessionFile>(json, JsonOptions) ?? new SessionFile();
+        try
+        {
+            return Parse(path);
+        }
+        catch (JsonException e)
+        {
+            SessionFile backup;
+            try
+            {
+                backup = File.Exists(BackupPath) ? Parse(BackupPath) : throw e;
+            }
+            catch (JsonException)
+            {
+                throw new SessionStoreException(
+                    $"{path} is damaged ({e.Message}) and there's no good backup. Fix it, or delete it to start again with no sessions.");
+            }
+
+            // Put the backup back, keeping the damaged file to look at, so this only happens once.
+            File.Copy(path, DamagedPath, overwrite: true);
+            File.Copy(BackupPath, path, overwrite: true);
+            var message = $"{path} was damaged, so cb went back to its backup from {File.GetLastWriteTime(BackupPath):yyyy-MM-dd HH:mm}. " +
+                          $"The damaged file is {DamagedPath}.";
+            Log.Write(message);
+            Console.Error.WriteLine(message);
+            return backup;
+        }
     }
+
+    private static SessionFile Parse(string file) =>
+        JsonSerializer.Deserialize<SessionFile>(File.ReadAllText(file), JsonOptions) ?? new SessionFile();
 
     private void Save(SessionFile file)
     {
         var temp = path + ".tmp";
         File.WriteAllText(temp, JsonSerializer.Serialize(file, JsonOptions));
-        File.Move(temp, path, overwrite: true);
+        if (File.Exists(path))
+            File.Replace(temp, path, BackupPath, ignoreMetadataErrors: true);
+        else
+            File.Move(temp, path);
     }
 
     private FileStream AcquireLock()
@@ -82,3 +117,5 @@ internal sealed class SessionStore(string path)
         }
     }
 }
+
+internal sealed class SessionStoreException(string message) : Exception(message);
