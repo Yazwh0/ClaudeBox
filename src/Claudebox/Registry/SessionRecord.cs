@@ -16,6 +16,10 @@ internal sealed class SessionRecord
     public string? Colour { get; set; }
     public string? Scheme { get; set; }
     public string Status { get; set; } = SessionStatus.New;
+    /// <summary>When the hook that set Status ran, so a slower, older hook can't overwrite it.</summary>
+    public DateTimeOffset? StatusAt { get; set; }
+    /// <summary>Subagents Claude has running.</summary>
+    public int Subagents { get; set; }
     public int? Pid { get; set; }
     public DateTimeOffset? ProcessStartedAt { get; set; }
     /// <summary>The cb process running the session in its tab, whose console the tab title belongs to.</summary>
@@ -35,12 +39,19 @@ internal static class SessionStatus
     public const string Running = "running";
     public const string Waiting = "waiting";
     public const string Busy = "busy";
+    public const string Idle = "idle";
+    public const string Command = "command";
+    public const string Editing = "editing";
+    public const string Compacting = "compacting";
     public const string Attention = "attention";
+    public const string Asking = "asking";
+    public const string Failed = "failed";
     public const string Exited = "exited";
     public const string Closed = "closed";
     public const string Interrupted = "interrupted";
 
-    public static readonly string[] All = [New, Running, Waiting, Busy, Attention, Exited, Closed, Interrupted];
+    public static readonly string[] All =
+        [New, Running, Waiting, Idle, Busy, Command, Editing, Compacting, Attention, Asking, Failed, Exited, Closed, Interrupted];
 }
 
 internal sealed class SessionFile

@@ -190,17 +190,23 @@ An alias is one word and can't be the name of a `cb` command. Its command is wha
 
 ## Statuses
 
-| Status | |
-| --- | --- |
-| `running` | Claude has started |
-| `waiting` | Waiting for you to type |
-| `busy` | Working on a prompt |
-| `attention` | Claude needs you, e.g. to approve a tool |
-| `exited` | You exited Claude |
-| `closed` | You closed the tab |
-| `interrupted` | Was running when Windows shut down, Claude or the terminal crashed, or its window was closed; `cb restore` brings these back |
+| Status | Tab | |
+| --- | --- | --- |
+| `running` | `Name` | Claude has started |
+| `waiting` | `○ Name` | Waiting for you to type |
+| `idle` | `◌ Name` | Still waiting for you, a minute or more after Claude finished |
+| `busy` | `● Name` | Working on a prompt |
+| `command` | `⚙ Name` | Running a command |
+| `editing` | `✎ Name` | Editing files |
+| `compacting` | `≈ Name` | Compacting the conversation |
+| `attention` | `? Name` | Needs you to approve a tool |
+| `asking` | `‽ Name` | Asking you a question, or for approval of a plan |
+| `failed` | `⚠ Name` | The turn stopped on an error, e.g. a rate limit |
+| `exited` | `✕ Name` | You exited Claude |
+| `closed` | | You closed the tab |
+| `interrupted` | | Was running when Windows shut down, Claude or the terminal crashed, or its window was closed; `cb restore` brings these back |
 
-Each tab's title shows its session's status: `○ Name` while Claude waits for you, `● Name` while it's working, `! Name` when it needs you, and just the name once Claude has ended. cb sets this instead of Claude, so the tab keeps the session's name rather than Claude's title for the conversation.
+cb sets each tab's title instead of Claude, so the tab keeps the session's name rather than Claude's title for the conversation. While Claude has subagents running, their number goes on the end, e.g. `● Name +2`. The hooks that run on every tool call run in the background, so they don't slow Claude down.
 
 ## Config
 

@@ -460,7 +460,7 @@ internal static class SessionCommands
         {
             try
             {
-                TerminalTitle.SetOnConsoleOf(updated.ConsolePid!.Value, TerminalTitle.WithStatus(updated.Name, updated.Status), reattach: true);
+                TerminalTitle.SetOnConsoleOf(updated.ConsolePid!.Value, TerminalTitle.WithStatus(updated.Name, updated.Status, updated.Subagents), reattach: true);
             }
             catch (IOException e)
             {
