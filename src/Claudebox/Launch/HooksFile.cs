@@ -8,7 +8,19 @@ namespace Claudebox.Launch;
 /// </summary>
 internal static class HooksFile
 {
-    public static readonly string[] Events = ["SessionStart", "UserPromptSubmit", "Stop", "Notification", "SessionEnd"];
+    /// <summary>
+    /// These fire on every tool call or subagent, so they run in the background rather than hold
+    /// Claude up. They can finish out of order; HookCommand keeps the newest status.
+    /// Declared before Events, which needs it initialised first.
+    /// </summary>
+    public static readonly string[] AsyncEvents =
+        ["PreToolUse", "PostToolUse", "PostToolUseFailure", "PermissionRequest", "SubagentStart", "SubagentStop"];
+
+    public static readonly string[] Events =
+    [
+        "SessionStart", "UserPromptSubmit", "Stop", "StopFailure", "Notification", "PreCompact", "PostCompact", "SessionEnd",
+        .. AsyncEvents,
+    ];
 
     /// <summary>
     /// Kept beside the copy of cb it calls, so a session's hooks always point at the copy that
@@ -34,7 +46,7 @@ internal static class HooksFile
         var command = string.Join(" ", cbCommand.Select(part => $"\"{part.Replace('\\', '/')}\"")) + " hook";
         var hooks = Events.ToDictionary(
             e => e,
-            e => new[] { new { hooks = new[] { new { type = "command", command = $"{command} {e}", timeout = 10 } } } });
+            e => new[] { new { hooks = new[] { new { type = "command", command = $"{command} {e}", timeout = 10, @async = AsyncEvents.Contains(e) } } } });
 
         return JsonSerializer.Serialize(new { hooks }, Config.JsonOptions);
     }

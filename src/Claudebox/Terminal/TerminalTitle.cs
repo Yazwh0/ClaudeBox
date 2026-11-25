@@ -13,33 +13,59 @@ internal static class TerminalTitle
     }
 
     /// <summary>The session's name with an icon for its status, as hooks show it in the tab.</summary>
-    public static string WithStatus(string name, string status) => status switch
+    public static string WithStatus(string name, string status, int subagents = 0)
     {
-        SessionStatus.Busy => $"● {name}",
-        SessionStatus.Waiting => $"○ {name}",
-        SessionStatus.Attention => $"! {name}",
-        _ => name,
+        var title = Icon(status) is { } icon ? $"{icon} {name}" : name;
+        return subagents > 0 ? $"{title} +{subagents}" : title;
+    }
+
+    /// <summary>Once Claude has ended but the tab is still open.</summary>
+    public static string Ended(string name) => $"✕ {name}";
+
+    private static string? Icon(string status) => status switch
+    {
+        SessionStatus.Waiting => "○",
+        SessionStatus.Idle => "◌",
+        SessionStatus.Busy => "●",
+        SessionStatus.Command => "⚙",
+        SessionStatus.Editing => "✎",
+        SessionStatus.Compacting => "≈",
+        SessionStatus.Attention => "?",
+        SessionStatus.Asking => "‽",
+        SessionStatus.Failed => "⚠",
+        _ => null,
     };
 
     /// <summary>
     /// Sets the title of another process's console. Claude runs hooks with a hidden console of their
     /// own, so a hook has to attach to the tab's console (the cb process running there) to reach it.
+    /// A command run from a shell passes reattach to go back to the shell's console afterwards.
     /// </summary>
-    public static void SetOnConsoleOf(int pid, string title)
+    public static void SetOnConsoleOf(int pid, string title, bool reattach = false)
     {
         FreeConsole();
-        if (!AttachConsole((uint)pid))
-            throw new IOException($"Couldn't attach to the console of process {pid} (error {Marshal.GetLastPInvokeError()}).");
         try
         {
-            using var console = File.OpenWrite("CONOUT$");
-            console.Write(System.Text.Encoding.UTF8.GetBytes(Sequence(title)));
+            if (!AttachConsole((uint)pid))
+                throw new IOException($"Couldn't attach to the console of process {pid} (error {Marshal.GetLastPInvokeError()}).");
+            try
+            {
+                using var console = File.OpenWrite("CONOUT$");
+                console.Write(System.Text.Encoding.UTF8.GetBytes(Sequence(title)));
+            }
+            finally
+            {
+                FreeConsole();
+            }
         }
         finally
         {
-            FreeConsole();
+            if (reattach)
+                AttachConsole(AttachParentProcess);
         }
     }
+
+    private const uint AttachParentProcess = unchecked((uint)-1);
 
     private static string Sequence(string title) => $"\e]0;{title}\a";
 

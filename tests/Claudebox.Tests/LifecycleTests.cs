@@ -137,22 +137,136 @@ public class LifecycleTests
     [InlineData("SessionStart", SessionStatus.Waiting)]
     [InlineData("UserPromptSubmit", SessionStatus.Busy)]
     [InlineData("Stop", SessionStatus.Waiting)]
+    [InlineData("StopFailure", SessionStatus.Failed)]
     [InlineData("Notification", SessionStatus.Attention)]
+    [InlineData("PermissionRequest", SessionStatus.Attention)]
+    [InlineData("PostToolUse", SessionStatus.Busy)]
+    [InlineData("PostToolUseFailure", SessionStatus.Busy)]
+    [InlineData("PreCompact", SessionStatus.Compacting)]
     [InlineData("SessionEnd", SessionStatus.Running)]
+    [InlineData("SubagentStart", SessionStatus.Running)]
     public void Hook_SetsStatus(string eventName, string expected)
     {
         var record = Record(status: SessionStatus.Running);
-        HookCommand.Apply(record, eventName, null, null);
+        HookCommand.Apply(record, new HookInput(eventName));
         Assert.Equal(expected, record.Status);
+    }
+
+    [Theory]
+    [InlineData("Bash", SessionStatus.Command)]
+    [InlineData("PowerShell", SessionStatus.Command)]
+    [InlineData("Edit", SessionStatus.Editing)]
+    [InlineData("Write", SessionStatus.Editing)]
+    [InlineData("AskUserQuestion", SessionStatus.Asking)]
+    [InlineData("ExitPlanMode", SessionStatus.Asking)]
+    [InlineData("Read", SessionStatus.Busy)]
+    public void Hook_PreToolUse_ShowsWhatKindOfTool(string tool, string expected)
+    {
+        var record = Record(status: SessionStatus.Busy);
+        HookCommand.Apply(record, new HookInput("PreToolUse") { ToolName = tool });
+        Assert.Equal(expected, record.Status);
+    }
+
+    [Fact]
+    public void Hook_PermissionForAQuestion_IsAsking()
+    {
+        var record = Record(status: SessionStatus.Busy);
+        HookCommand.Apply(record, new HookInput("PermissionRequest") { ToolName = "AskUserQuestion" });
+        Assert.Equal(SessionStatus.Asking, record.Status);
+    }
+
+    [Theory]
+    [InlineData("manual", SessionStatus.Waiting)]
+    [InlineData("auto", SessionStatus.Busy)]
+    public void Hook_PostCompact_GoesBackToWhatItWasDoing(string trigger, string expected)
+    {
+        var record = Record(status: SessionStatus.Compacting);
+        HookCommand.Apply(record, new HookInput("PostCompact") { Trigger = trigger });
+        Assert.Equal(expected, record.Status);
+    }
+
+    [Fact]
+    public void Hook_OlderAsyncHook_DoesntOverwriteNewerStatus()
+    {
+        var record = Record(status: SessionStatus.Busy);
+        var now = DateTimeOffset.Now;
+        HookCommand.Apply(record, new HookInput("Stop") { At = now });
+        HookCommand.Apply(record, new HookInput("PostToolUse") { At = now.AddMilliseconds(-50) });
+        Assert.Equal(SessionStatus.Waiting, record.Status);
+    }
+
+    [Fact]
+    public void Hook_CountsSubagents()
+    {
+        var record = Record(status: SessionStatus.Busy);
+        HookCommand.Apply(record, new HookInput("SubagentStart"));
+        HookCommand.Apply(record, new HookInput("SubagentStart"));
+        HookCommand.Apply(record, new HookInput("SubagentStop"));
+        Assert.Equal(1, record.Subagents);
+
+        HookCommand.Apply(record, new HookInput("SubagentStop"));
+        HookCommand.Apply(record, new HookInput("SubagentStop"));
+        Assert.Equal(0, record.Subagents);
+    }
+
+    [Theory]
+    [InlineData("clear", false)]
+    [InlineData("resume", false)]
+    [InlineData("prompt_input_exit", true)]
+    [InlineData(null, true)]
+    public void Hook_SessionEnd_ShowsEndedUnlessAnotherConversationStarts(string? reason, bool ended)
+    {
+        var record = Record(status: SessionStatus.Waiting);
+        var title = HookCommand.Title(record, new HookInput("SessionEnd") { Reason = reason });
+        Assert.Equal(ended ? "✕ s" : null, title);
     }
 
     [Fact]
     public void Hook_TracksNewSessionIdAfterClear()
     {
         var record = Record();
-        HookCommand.Apply(record, "SessionStart", "new-id", @"C:\t\new-id.jsonl");
+        HookCommand.Apply(record, new HookInput("SessionStart") { SessionId = "new-id", TranscriptPath = @"C:\t\new-id.jsonl" });
 
         Assert.Equal("new-id", record.SessionId);
         Assert.Equal(@"C:\t\new-id.jsonl", record.TranscriptPath);
+    }
+
+    [Theory]
+    [InlineData("permission_prompt", SessionStatus.Waiting, SessionStatus.Attention)]
+    [InlineData(null, SessionStatus.Waiting, SessionStatus.Attention)]
+    [InlineData("permission_prompt", SessionStatus.Asking, SessionStatus.Asking)]
+    [InlineData("elicitation_dialog", SessionStatus.Busy, SessionStatus.Asking)]
+    [InlineData("elicitation_url_dialog", SessionStatus.Busy, SessionStatus.Asking)]
+    [InlineData("idle_prompt", SessionStatus.Waiting, SessionStatus.Idle)]
+    [InlineData("idle_prompt", SessionStatus.Busy, SessionStatus.Busy)]
+    [InlineData("auth_success", SessionStatus.Waiting, SessionStatus.Waiting)]
+    public void Hook_Notification_DependsOnType(string? type, string before, string expected)
+    {
+        var record = Record(status: before);
+        HookCommand.Apply(record, new HookInput("Notification") { NotificationType = type });
+        Assert.Equal(expected, record.Status);
+    }
+
+    [Fact]
+    public void Hook_Clear_RemembersPreviousConversation()
+    {
+        var record = Record();
+        var old = record.SessionId;
+        HookCommand.Apply(record, new HookInput("SessionStart") { SessionId = "new-id", Source = "clear" });
+        HookCommand.Apply(record, new HookInput("SessionStart") { SessionId = "new-id", Source = "clear" });
+
+        Assert.Equal([old], record.PreviousSessionIds);
+    }
+
+    [Theory]
+    [InlineData("resume")]
+    [InlineData("startup")]
+    [InlineData(null)]
+    public void Hook_OtherSessionStarts_DontRememberPreviousConversation(string? source)
+    {
+        var record = Record();
+        HookCommand.Apply(record, new HookInput("SessionStart") { SessionId = "other-id", Source = source });
+
+        Assert.Empty(record.PreviousSessionIds);
     }
 }

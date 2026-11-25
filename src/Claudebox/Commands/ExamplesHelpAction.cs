@@ -17,6 +17,8 @@ internal sealed class ExamplesHelpAction(SynchronousCommandLineAction standardHe
           cb new "Spike" --dir C:\src --here  choose the folder; run in this tab
           cb new "API refactor" --replace     if the name is taken, replace it without asking
           cb ls                               list sessions and their status
+          cb ls -s interrupted -d .           ... only interrupted ones in this folder (--json for scripts)
+          cb info 2                           everything about a session: IDs, transcript, Claude arguments
           cb resume "API refactor"            reopen a session (name, number from ls, or prefix)
           cb restore                          reopen sessions lost to a reboot, crash or closed window
           cb restore --all                    reopen every session that isn't running
@@ -38,6 +40,7 @@ internal sealed class ExamplesHelpAction(SynchronousCommandLineAction standardHe
           cb work add research --claude-args "--permission-mode plan"
                                               pass arguments to claude in that type's sessions
           cb alias add c "rm --exited -y"     make cb c a shortcut for that command
+          cb doctor                           check that everything cb needs is working
 
         Run cb <command> -? for all of a command's options.
         Settings: %APPDATA%\claudebox\config.json (cb config edit opens it)

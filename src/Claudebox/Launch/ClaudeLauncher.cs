@@ -50,8 +50,11 @@ internal sealed class ClaudeLauncher(SessionStore store, Config config)
         {
             r.Open = true;
             r.Status = SessionStatus.Running;
+            r.StatusAt = DateTimeOffset.Now;
+            r.Subagents = 0;
             r.Pid = process.Id;
             r.ProcessStartedAt = new DateTimeOffset(process.StartTime);
+            r.ConsolePid = Environment.ProcessId;
             r.LastActiveAt = DateTimeOffset.Now;
             r.ClosedAt = null;
         });
@@ -61,8 +64,8 @@ internal sealed class ClaudeLauncher(SessionStore store, Config config)
         if (_closing)
             return process.ExitCode;
 
-        // Drop the status icon, since Claude isn't running any more.
-        TerminalTitle.Set(store.ReadAll().Find(s => s.Id == record.Id)?.Name ?? record.Name);
+        // Claude isn't running any more, so the status icon no longer applies.
+        TerminalTitle.Set(TerminalTitle.Ended(store.ReadAll().Find(s => s.Id == record.Id)?.Name ?? record.Name));
 
         // A failed exit is a crash rather than you exiting: leave the session open so it's restored.
         if (process.ExitCode != 0)
@@ -95,6 +98,9 @@ internal sealed class ClaudeLauncher(SessionStore store, Config config)
     private void MarkInterrupted(string id) => store.UpdateRecord(id, r =>
     {
         r.Status = SessionStatus.Interrupted;
+        r.StatusAt = DateTimeOffset.Now;
+        r.Subagents = 0;
+        r.ConsolePid = null;
         r.LastActiveAt = DateTimeOffset.Now;
         r.TranscriptPath = Transcripts.Find(r.SessionId, r.TranscriptPath);
     });
@@ -102,9 +108,13 @@ internal sealed class ClaudeLauncher(SessionStore store, Config config)
     private void MarkClosed(string id, string status) => store.UpdateRecord(id, r =>
     {
         r.Open = false;
+        // StatusAt too, so an async hook still finishing can't bring back the old status.
         r.Status = status;
+        r.StatusAt = DateTimeOffset.Now;
+        r.Subagents = 0;
         r.Pid = null;
         r.ProcessStartedAt = null;
+        r.ConsolePid = null;
         r.ClosedAt = DateTimeOffset.Now;
         r.LastActiveAt = DateTimeOffset.Now;
         r.TranscriptPath = Transcripts.Find(r.SessionId, r.TranscriptPath);

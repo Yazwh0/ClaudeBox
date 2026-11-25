@@ -47,7 +47,7 @@ internal static class StartupCommands
     }
 
     [SupportedOSPlatform("windows")]
-    private static string? Current()
+    internal static string? Current()
     {
         using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(RunKey);
         return key?.GetValue(ValueName) as string;

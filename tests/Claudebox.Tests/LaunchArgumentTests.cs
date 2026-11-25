@@ -69,12 +69,37 @@ public class LaunchArgumentTests
     [Theory]
     [InlineData(SessionStatus.Busy, "● Login hotfix")]
     [InlineData(SessionStatus.Waiting, "○ Login hotfix")]
-    [InlineData(SessionStatus.Attention, "! Login hotfix")]
+    [InlineData(SessionStatus.Idle, "◌ Login hotfix")]
+    [InlineData(SessionStatus.Command, "⚙ Login hotfix")]
+    [InlineData(SessionStatus.Editing, "✎ Login hotfix")]
+    [InlineData(SessionStatus.Compacting, "≈ Login hotfix")]
+    [InlineData(SessionStatus.Attention, "? Login hotfix")]
+    [InlineData(SessionStatus.Asking, "‽ Login hotfix")]
+    [InlineData(SessionStatus.Failed, "⚠ Login hotfix")]
     [InlineData(SessionStatus.Running, "Login hotfix")]
     [InlineData(SessionStatus.Exited, "Login hotfix")]
     public void Title_ShowsStatusIcon(string status, string expected)
     {
         Assert.Equal(expected, TerminalTitle.WithStatus("Login hotfix", status));
+    }
+
+    [Fact]
+    public void Title_ShowsSubagentCount()
+    {
+        Assert.Equal("● Login hotfix +2", TerminalTitle.WithStatus("Login hotfix", SessionStatus.Busy, subagents: 2));
+    }
+
+    [Fact]
+    public void HooksFile_PerToolHooksRunInTheBackground()
+    {
+        using var doc = JsonDocument.Parse(HooksFile.Build(["cb.exe"]));
+        var hooks = doc.RootElement.GetProperty("hooks");
+        bool IsAsync(string name) => hooks.GetProperty(name)[0].GetProperty("hooks")[0].GetProperty("async").GetBoolean();
+
+        Assert.True(IsAsync("PreToolUse"));
+        Assert.True(IsAsync("SubagentStop"));
+        Assert.False(IsAsync("Stop"));
+        Assert.False(IsAsync("SessionStart"));
     }
 
     [Fact]

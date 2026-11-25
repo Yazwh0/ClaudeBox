@@ -62,11 +62,23 @@ Reopens a saved session with its conversation, in its own folder. Refuses if it'
 
 ### `cb ls`
 
-Lists sessions with their work type (in its colour), status, when they were last active and their folder.
+Lists sessions with their work type (in its colour), status, how long ago they were last active and their folder. Each keeps its number when others are filtered out, so `cb resume 3` always means the same session.
 
 | Option | |
 | --- | --- |
 | `-a`, `--all` | Include sessions closed more than two weeks ago |
+| `-w`, `--work <type>` | Only sessions of this work type |
+| `-s`, `--status <status>` | Only sessions with this status (see [Statuses](#statuses)), e.g. `waiting` or `interrupted` |
+| `-d`, `--dir <path>` | Only sessions in this folder or one inside it (`.` for the current folder) |
+| `--json` | Print the sessions as JSON, for scripts |
+
+### `cb info <session>`
+
+Shows everything about a session: its status and pid, the conversation's title, work type, colour, folder, Claude's session ID (and earlier ones from before a `/clear`), where its transcript is, the Claude arguments it gets and where each comes from, and when it was created, last active and closed.
+
+### `cb doctor`
+
+Checks that everything cb needs is working: Claude and Windows Terminal can be found, the settings and sessions load, every session's folder and transcript is there, cb still understands Claude's running-session files, and nothing has gone wrong in the log in the last week. It also says whether `cb restore` runs when you log in. Exits with 1 if it finds a problem.
 
 ### `cb restore`
 
@@ -86,7 +98,7 @@ Shows whether `cb restore` runs when you log in. `cb startup enable` turns it on
 
 ### `cb set <session>`
 
-Changes a session's details. Changes to an open session's tab show the next time it's opened.
+Changes a session's details. A new name shows in an open session's tab straight away; a new colour or scheme shows the next time it's opened, as Windows Terminal can't change them on an open tab.
 
 | Option | |
 | --- | --- |
@@ -108,7 +120,7 @@ Forgets sessions. Claude's transcripts are kept unless you ask otherwise, and ru
 | `--exited` | Every session that was exited or closed (interrupted ones, including those closed with their window, are kept so they can be restored) |
 | `-w`, `--work <type>` | Every session of this work type that isn't running; with `--exited`, only the exited ones |
 | `-y`, `--yes` | Don't ask before removing several |
-| `--forget-transcript` | Also delete Claude's transcript of the conversation |
+| `--forget-transcript` | Also delete Claude's transcripts of the conversation, including ones from before a `/clear` |
 
 ### `cb adopt [<session-id>]`
 
@@ -178,17 +190,23 @@ An alias is one word and can't be the name of a `cb` command. Its command is wha
 
 ## Statuses
 
-| Status | |
-| --- | --- |
-| `running` | Claude has started |
-| `waiting` | Waiting for you to type |
-| `busy` | Working on a prompt |
-| `attention` | Claude needs you, e.g. to approve a tool |
-| `exited` | You exited Claude |
-| `closed` | You closed the tab |
-| `interrupted` | Was running when Windows shut down, Claude or the terminal crashed, or its window was closed; `cb restore` brings these back |
+| Status | Tab | |
+| --- | --- | --- |
+| `running` | `Name` | Claude has started |
+| `waiting` | `○ Name` | Waiting for you to type |
+| `idle` | `◌ Name` | Still waiting for you, a minute or more after Claude finished |
+| `busy` | `● Name` | Working on a prompt |
+| `command` | `⚙ Name` | Running a command |
+| `editing` | `✎ Name` | Editing files |
+| `compacting` | `≈ Name` | Compacting the conversation |
+| `attention` | `? Name` | Needs you to approve a tool |
+| `asking` | `‽ Name` | Asking you a question, or for approval of a plan |
+| `failed` | `⚠ Name` | The turn stopped on an error, e.g. a rate limit |
+| `exited` | `✕ Name` | You exited Claude |
+| `closed` | | You closed the tab |
+| `interrupted` | | Was running when Windows shut down, Claude or the terminal crashed, or its window was closed; `cb restore` brings these back |
 
-Each tab's title shows its session's status: `○ Name` while Claude waits for you, `● Name` while it's working, `! Name` when it needs you, and just the name once Claude has ended. cb sets this instead of Claude, so the tab keeps the session's name rather than Claude's title for the conversation.
+cb sets each tab's title instead of Claude, so the tab keeps the session's name rather than Claude's title for the conversation. While Claude has subagents running, their number goes on the end, e.g. `● Name +2`. The hooks that run on every tool call run in the background, so they don't slow Claude down.
 
 ## Config
 
@@ -229,7 +247,7 @@ Colours can be a name or hex (`#RRGGBB` or `#RGB`), and names are saved as names
 
 `cb` starts `claude` with a session ID it chooses and passes some hooks with `--settings`, so your own Claude settings aren't touched. The hooks keep the session ID up to date after `/clear` and track whether Claude is busy or waiting. Exiting Claude or closing its tab marks the session as ended; a shutdown or crash leaves it open, which is how `cb restore` knows what to bring back. Claude exiting with an error counts as a crash. Closing a window closes all its tabs within a second or two, so sessions closed less than two seconds apart count as interrupted too; this also covers the terminal crashing, which looks like the window being closed. A window with only one tab looks like closing that tab, so it stays closed.
 
-Sessions are kept in `%APPDATA%\claudebox\sessions.json`.
+Sessions are kept in `%APPDATA%\claudebox\sessions.json`, with the previous save as `sessions.json.bak`. If the file is ever damaged, cb goes back to the backup and keeps the damaged one as `sessions.json.damaged`.
 
 ## Updating
 

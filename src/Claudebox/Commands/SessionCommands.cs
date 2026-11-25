@@ -186,32 +186,62 @@ internal static class SessionCommands
         return 0;
     }
 
-    public static int List(bool all)
+    /// <summary>
+    /// Lists sessions, numbered by their place in the registry (what cb resume 3 means), so
+    /// filtering never renumbers them. Old exited and closed ones are left out unless all.
+    /// </summary>
+    public static int List(bool all, string? work, string? status, DirectoryInfo? dir, bool json)
     {
+        if (status is not null && !SessionStatus.All.Contains(status, StringComparer.OrdinalIgnoreCase))
+            return Fail($"Unknown status '{status}'. Use one of {string.Join(", ", SessionStatus.All)}.");
+
         var sessions = SessionStore.Default.ReadAll();
-        if (sessions.Count == 0)
+        var closedTogether = RestorePlanner.ClosedTogether(sessions);
+        var now = DateTimeOffset.Now;
+        var rows = sessions
+            .Select((s, i) => (Number: i + 1, Session: s, Status: ProcessLiveness.EffectiveStatus(s, closedTogether.Contains(s.Id))))
+            .Where(r => (all || status is not null || !(r.Status is SessionStatus.Exited or SessionStatus.Closed && r.Session.LastActiveAt < now.AddDays(-14)))
+                     && SessionFilter.MatchesWork(r.Session, work)
+                     && (status is null || r.Status.Equals(status, StringComparison.OrdinalIgnoreCase))
+                     && (dir is null || SessionFilter.IsUnder(r.Session, dir.FullName)))
+            .ToList();
+
+        if (json)
         {
-            Console.WriteLine("No sessions yet. Run cb to start one here, or cb new \"<name>\".");
+            Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(rows.Select(r => new
+            {
+                number = r.Number,
+                name = r.Session.Name,
+                status = r.Status,
+                work = r.Session.Work,
+                colour = r.Session.Colour,
+                folder = r.Session.Cwd,
+                lastActive = r.Session.LastActiveAt,
+                sessionId = r.Session.SessionId,
+                id = r.Session.Id,
+            }), Config.JsonOptions));
+            return 0;
+        }
+
+        if (rows.Count == 0)
+        {
+            Console.WriteLine(sessions.Count == 0 ? "No sessions yet. Run cb to start one here, or cb new \"<name>\"."
+                : work is null && status is null && dir is null ? "No recent sessions. Use --all to see older ones."
+                : "No sessions match.");
             return 0;
         }
 
         var useColour = !Console.IsOutputRedirected;
-        var nameWidth = Math.Max(4, sessions.Max(s => s.Name.Length));
-        var workWidth = Math.Max(4, sessions.Max(s => s.Work?.Length ?? 0));
-        Console.WriteLine($"{"#",3}  {"Name".PadRight(nameWidth)}  {"Work".PadRight(workWidth)}  {"Status",-12}  {"Last active",-16}  Folder");
-        var closedTogether = RestorePlanner.ClosedTogether(sessions);
-        for (var i = 0; i < sessions.Count; i++)
+        var nameWidth = Math.Max(4, rows.Max(r => r.Session.Name.Length));
+        var workWidth = Math.Max(4, rows.Max(r => r.Session.Work?.Length ?? 0));
+        Console.WriteLine($"{"#",3}  {"Name".PadRight(nameWidth)}  {"Work".PadRight(workWidth)}  {"Status",-12}  {"Last active",-11}  Folder");
+        foreach (var (number, s, rowStatus) in rows)
         {
-            var s = sessions[i];
-            var status = ProcessLiveness.EffectiveStatus(s, closedTogether.Contains(s.Id));
-            if (!all && status is SessionStatus.Exited or SessionStatus.Closed && s.LastActiveAt < DateTimeOffset.Now.AddDays(-14))
-                continue;
-
-            var work = (s.Work ?? "").PadRight(workWidth);
+            var workText = (s.Work ?? "").PadRight(workWidth);
             if (useColour && s.Colour is { } colour)
-                work = Colours.Ansi(colour) + work + Colours.Reset;
+                workText = Colours.Ansi(colour) + workText + Colours.Reset;
 
-            Console.WriteLine($"{i + 1,3}  {s.Name.PadRight(nameWidth)}  {work}  {status,-12}  {s.LastActiveAt:yyyy-MM-dd HH:mm}  {s.Cwd}");
+            Console.WriteLine($"{number,3}  {s.Name.PadRight(nameWidth)}  {workText}  {rowStatus,-12}  {TimeText.Ago(s.LastActiveAt, now),-11}  {s.Cwd}");
         }
         return 0;
     }
@@ -413,10 +443,30 @@ internal static class SessionCommands
         if (store.Update(file => changes.ApplyTo(file, target.Id, config)) is { } error)
             return Fail(error);
 
-        var name = changes.Name is null ? target.Name : NameClash.CleanName(changes.Name);
-        Console.WriteLine(ProcessLiveness.IsAlive(target)
-            ? $"Updated '{name}'. Its tab changes next time it's opened."
-            : $"Updated '{name}'.");
+        var updated = store.ReadAll().Find(s => s.Id == target.Id) ?? target;
+        var alive = ProcessLiveness.IsAlive(updated);
+        // Windows Terminal can't recolour an open tab, but its title can change now. Adopted sessions
+        // running outside cb have no cb tab to retitle.
+        var retitle = alive && changes.Name is not null && updated.ConsolePid is not null;
+        var nameWaits = alive && changes.Name is not null && !retitle;
+        var coloursWait = alive && (changes.Work ?? changes.Colour ?? changes.Scheme) is not null;
+        Console.WriteLine($"Updated '{updated.Name}'." +
+            (nameWaits ? " Its tab changes next time it's opened."
+            : coloursWait ? " Its tab's colours change next time it's opened."
+            : ""));
+
+        // Last, as it briefly leaves this console; the next hook would put the new name up anyway.
+        if (retitle)
+        {
+            try
+            {
+                TerminalTitle.SetOnConsoleOf(updated.ConsolePid!.Value, TerminalTitle.WithStatus(updated.Name, updated.Status, updated.Subagents), reattach: true);
+            }
+            catch (IOException e)
+            {
+                Log.Write($"Couldn't retitle '{updated.Name}': {e.Message}");
+            }
+        }
         return 0;
     }
 
@@ -446,7 +496,7 @@ internal static class SessionCommands
             }
 
             foreach (var s in targets)
-                Console.WriteLine($"  {s.Name}  ({ProcessLiveness.EffectiveStatus(s)}, last active {s.LastActiveAt:yyyy-MM-dd HH:mm})");
+                Console.WriteLine($"  {s.Name}  ({ProcessLiveness.EffectiveStatus(s, closedTogether.Contains(s.Id))}, last active {s.LastActiveAt:yyyy-MM-dd HH:mm})");
 
             if (!yes)
             {
@@ -466,17 +516,23 @@ internal static class SessionCommands
         }
 
         var ids = targets.Select(s => s.Id).ToHashSet();
-        store.Update(f => f.Sessions.RemoveAll(s => ids.Contains(s.Id)));
+        var remaining = store.Update(f =>
+        {
+            f.Sessions.RemoveAll(s => ids.Contains(s.Id));
+            return f.Sessions;
+        });
 
         var deleted = 0;
         if (forgetTranscript)
         {
+            // A conversation another session has since resumed belongs to that one now.
+            var inUse = remaining.SelectMany(ConversationIds).ToHashSet(StringComparer.OrdinalIgnoreCase);
             foreach (var s in targets)
             {
-                if (Transcripts.Find(s.SessionId, s.TranscriptPath) is { } transcript)
+                foreach (var conversation in ConversationIds(s).Where(c => !inUse.Contains(c)))
                 {
-                    File.Delete(transcript);
-                    deleted++;
+                    if (Transcripts.Delete(conversation, conversation == s.SessionId ? s.TranscriptPath : null))
+                        deleted++;
                 }
             }
         }
@@ -522,6 +578,9 @@ internal static class SessionCommands
             _ => null,
         };
     }
+
+    private static IEnumerable<string> ConversationIds(SessionRecord record) =>
+        record.PreviousSessionIds.Prepend(record.SessionId);
 
     private static SessionRecord? FindByName(IEnumerable<SessionRecord> sessions, string name) =>
         sessions.FirstOrDefault(s => s.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
